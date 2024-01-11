@@ -30,6 +30,8 @@ from ply import write_ply, read_ply
 
 # Import time package
 import time
+from pathlib import Path
+here = Path(__file__).parent
 
 
 # ------------------------------------------------------------------------------------------
@@ -45,14 +47,10 @@ import time
 def cloud_decimation(points, colors, labels, factor):
 
     # YOUR CODE
-    decimated_points = None
-    decimated_colors = None
-    decimated_labels = None
-
+    decimated_points = points[::factor]
+    decimated_colors = colors[::factor]
+    decimated_labels = labels[::factor]
     return decimated_points, decimated_colors, decimated_labels
-
-
-
 
 
 # ------------------------------------------------------------------------------------------
@@ -60,10 +58,9 @@ def cloud_decimation(points, colors, labels, factor):
 #           Main
 #       \**********/
 #
-# 
+#
 #   Here you can define the instructions that are called when you execute this file
 #
-
 if __name__ == '__main__':
 
     # Load point cloud
@@ -74,7 +71,7 @@ if __name__ == '__main__':
     #
 
     # Path of the file
-    file_path = '../data/indoor_scan.ply'
+    file_path = file_path = here.parent/'data'/'indoor_scan.ply'
 
     # Load point cloud
     data = read_ply(file_path)
@@ -82,7 +79,7 @@ if __name__ == '__main__':
     # Concatenate data
     points = np.vstack((data['x'], data['y'], data['z'])).T
     colors = np.vstack((data['red'], data['green'], data['blue'])).T
-    labels = data['label']    
+    labels = data['label']
 
     # Decimate the point cloud
     # ************************
@@ -93,12 +90,13 @@ if __name__ == '__main__':
 
     # Decimate
     t0 = time.time()
-    decimated_points, decimated_colors, decimated_labels = cloud_decimation(points, colors, labels, factor)
+    decimated_points, decimated_colors, decimated_labels = cloud_decimation(
+        points, colors, labels, factor)
     t1 = time.time()
     print('decimation done in {:.3f} seconds'.format(t1 - t0))
 
     # Save
-    write_ply('../decimated.ply', [decimated_points, decimated_colors, decimated_labels], ['x', 'y', 'z', 'red', 'green', 'blue', 'label'])
+    write_ply('../decimated.ply', [decimated_points, decimated_colors,
+              decimated_labels], ['x', 'y', 'z', 'red', 'green', 'blue', 'label'])
 
-    
     print('Done')
