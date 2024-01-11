@@ -60,11 +60,15 @@ def brute_force_spherical(
     return neighborhood_indices
 
 
-def brute_force_KNN(queries, supports, k):
-
-    # YOUR CODE
-    neighborhoods = None
-
+def brute_force_KNN(
+    queries: np.ndarray,
+    supports: np.ndarray,
+    k: int = 100
+) -> np.ndarray:
+    queries = np.expand_dims(queries, axis=1)
+    supports_exp = np.expand_dims(supports, axis=0)
+    distances = np.linalg.norm(supports_exp-queries, axis=-1)
+    neighborhoods = np.argsort(distances)[:, :k]
     return neighborhoods
 
 
@@ -112,7 +116,7 @@ if __name__ == '__main__':
         queries = points[random_indices, :]
 
         # Search spherical
-        total_iterations = 100
+        total_iterations = 1
         t0 = time.time()
         for _ in range(total_iterations):
             neighborhoods = brute_force_spherical(queries, points, radius)
