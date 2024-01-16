@@ -27,6 +27,8 @@ import numpy as np
 
 # Import functions to read and write ply files
 from ply import write_ply, read_ply
+from pathlib import Path
+here = Path(__file__).parent
 
 
 # ------------------------------------------------------------------------------------------
@@ -38,15 +40,19 @@ from ply import write_ply, read_ply
 #   Here you can define useful functions to be used in the main
 #
 
+def rescale_point_cloud(pc: np.ndarray, scale: float = 1., offset=np.zeros(3)) -> np.ndarray:
+    center = pc.mean(axis=0)
+    return (pc - center) * scale + offset
 
 # ------------------------------------------------------------------------------------------
 #
 #           Main
 #       \**********/
 #
-# 
+#
 #   Here you can define the instructions that are called when you execute this file
 #
+
 
 if __name__ == '__main__':
 
@@ -55,7 +61,7 @@ if __name__ == '__main__':
     #
 
     # Path of the file
-    file_path = '../data/bunny.ply'
+    file_path = here.parent/'data/bunny.ply'
 
     # Load point cloud
     data = read_ply(file_path)
@@ -73,23 +79,8 @@ if __name__ == '__main__':
     #
 
     # Replace this line by your code
-    # 1 center the point cloud around mean
-    origin = points.mean()
-    transformed_points = points - origin
-
-    # 2 Divide the scale by a factor of two
-    transformed_points = transformed_points/2
-    
-    # 3 recenter at the original position
-    transformed_points = transformed_points + origin
-    
-    # 4 apply a -10cm translation in the y direction
-    transformed_points[:, 1] -= 0.1
-    
-    
-
-    
-    # transformed_points = points
+    transformed_points = rescale_point_cloud(
+        points, scale=1/2, offset=np.array([0., -10.E-2, 0.]))
 
     # Save point cloud
     # *********************
@@ -99,6 +90,7 @@ if __name__ == '__main__':
     #
 
     # Save point cloud
-    write_ply('../little_bunny.ply', [transformed_points, colors], ['x', 'y', 'z', 'red', 'green', 'blue'])
+    write_ply('../little_bunny.ply',
+              [transformed_points, colors], ['x', 'y', 'z', 'red', 'green', 'blue'])
 
     print('Done')
