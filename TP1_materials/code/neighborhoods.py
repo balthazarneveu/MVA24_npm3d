@@ -119,24 +119,25 @@ if __name__ == '__main__':
         queries = points[random_indices, :]
 
         # Search spherical
-        total_iterations = 1
+        total_iterations = 10
         t0 = time.time()
         for _ in range(total_iterations):
             neighborhoods = brute_force_spherical(queries, points, radius)
         t1 = time.time()
         # Search KNN
-        neighborhoods = brute_force_KNN(queries, points, neighbors_num)
+        for _ in range(total_iterations):
+            neighborhoods = brute_force_KNN(queries, points, neighbors_num)
         t2 = time.time()
 
         # Print timing results
         print('{:d} spherical neighborhoods computed in {:.3f} seconds'.format(
             num_queries, (t1 - t0)/total_iterations))
-        print('{:d} KNN computed in {:.3f} seconds'.format(num_queries, t2 - t1))
+        print('{:d} KNN computed in {:.3f} seconds'.format(num_queries, (t2 - t1)/ total_iterations))
 
         # Time to compute all neighborhoods in the cloud
         total_spherical_time = points.shape[0] * \
             (t1 - t0)/total_iterations / num_queries
-        total_KNN_time = points.shape[0] * (t2 - t1) / num_queries
+        total_KNN_time = points.shape[0] * (t2 - t1) / total_iterations/ num_queries
         print('Computing spherical neighborhoods on whole cloud : {:.0f} hours'.format(
             total_spherical_time / 3600))
         print('Computing KNN on whole cloud : {:.0f} hours'.format(
@@ -193,7 +194,7 @@ if __name__ == '__main__':
 
         plt.figure()
         plt.plot(leaf_sizes, timings_query)
-        plt.title("10 queries for radius = 0.2")
+        plt.title(f"{num_queries} queries for radius = {radius}")
         plt.grid()
         plt.xlabel("Leaf size")
         plt.ylabel("Duration (sec)")
@@ -217,6 +218,7 @@ if __name__ == '__main__':
             tree = KDTree(points,
                           leaf_size=leaf_size,
                           metric='minkowski')
+            # Minkowski distance  with p=2  -> Euclidean distance
             t1 = time.time()
             # print('leaf_size {}, kd-tree computed in {:.3f} seconds'.format(leaf_size, t1 - t0))
 
