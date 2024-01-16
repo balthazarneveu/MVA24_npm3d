@@ -29,7 +29,7 @@ import numpy as np
 from sklearn.neighbors import KDTree
 
 # Import functions to read and write ply files
-from ply import write_ply, read_ply
+from ply import read_ply
 
 # Import time package
 import time
@@ -122,7 +122,8 @@ if __name__ == '__main__':
         num_queries = 10
 
         # Pick random queries
-        random_indices = np.random.choice(points.shape[0], num_queries, replace=False)
+        random_indices = np.random.choice(
+            points.shape[0], num_queries, replace=False)
         queries = points[random_indices, :]
 
         # Search spherical
@@ -153,11 +154,11 @@ if __name__ == '__main__':
     #
 
     # If statement to skip this part if wanted
-    if False:
+    if True:
         radius = 0.2
         # Define the search parameters
         num_queries = 1000
-        
+
         leaf_sizes = []
         timings_creation = []
         timings_query = []
@@ -165,7 +166,7 @@ if __name__ == '__main__':
             if leaf_size == 0:
                 leaf_size = 1
             leaf_sizes.append(leaf_size)
-            
+
             # create the kd tree
             t0 = time.time()
             tree = KDTree(points,
@@ -174,28 +175,29 @@ if __name__ == '__main__':
             t1 = time.time()
             # print('leaf_size {}, kd-tree computed in {:.3f} seconds'.format(leaf_size, t1 - t0))
             timings_creation.append(t1 - t0)
-    
-            
-            random_indices = np.random.choice(points.shape[0], num_queries, replace=False)
+
+            random_indices = np.random.choice(
+                points.shape[0], num_queries, replace=False)
             queries = points[random_indices, :]
-    
+
             t0 = time.time()
-            ind = tree.query_radius(queries, r=radius)   
+            ind = tree.query_radius(queries, r=radius)
             t1 = time.time()
             timings_query.append(t1 - t0)
             # print('leaf_size {}, {:d} tree query computed in {:.3f} seconds'.format(leaf_size, num_queries, t1 - t0))
             total_time = points.shape[0] * (t1 - t0) / num_queries
             # print('leaf_size {}, Computing kd-tree on whole cloud : {:.2f} hours'.format(leaf_size, total_time / 3600))
             # print(10*"_")
-    
+
         plt.figure()
         plt.plot(leaf_sizes, timings_creation)
         plt.title("Creation")
         plt.grid()
-        plt.ylabel("Duration (sec)")    
+        plt.ylabel("Duration (sec)")
         plt.xlabel("Leaf size")
         plt.legend()
-        
+        plt.show()
+
         plt.figure()
         plt.plot(leaf_sizes, timings_query)
         plt.title("10 queries for radius = 0.2")
@@ -203,21 +205,20 @@ if __name__ == '__main__':
         plt.xlabel("Leaf size")
         plt.ylabel("Duration (sec)")
         plt.legend()
-    
-    
-    
+        plt.show()
+
     # If statement to skip this part if wanted
     if True:
         radius = 0.2
         # Define the search parameters
         num_queries = 1000
-        
+
         leaf_size = 50
         timings_query = []
         radia = []
         for radius in tqdm(np.linspace(0.1, 0.5, 20)):
             radia.append(radius)
-            
+
             # create the kd tree
             t0 = time.time()
             tree = KDTree(points,
@@ -225,20 +226,21 @@ if __name__ == '__main__':
                           metric='minkowski')
             t1 = time.time()
             # print('leaf_size {}, kd-tree computed in {:.3f} seconds'.format(leaf_size, t1 - t0))
-    
-            
-            random_indices = np.random.choice(points.shape[0], num_queries, replace=False)
+
+            random_indices = np.random.choice(
+                points.shape[0], num_queries, replace=False)
             queries = points[random_indices, :]
-    
+
             t0 = time.time()
-            ind = tree.query_radius(queries, r=radius)   
+            ind = tree.query_radius(queries, r=radius)
             t1 = time.time()
             timings_query.append(t1 - t0)
             # print('leaf_size {}, {:d} tree query computed in {:.3f} seconds'.format(leaf_size, num_queries, t1 - t0))
             total_time = points.shape[0] * (t1 - t0) / num_queries
-            print('radius {}, Computing kd-tree on whole cloud : {:.2f} minutes'.format(radius, total_time / 60))
+            print(
+                'radius {}, Computing kd-tree on whole cloud : {:.2f} minutes'.format(radius, total_time / 60))
             print(10*"_")
-    
+
         plt.figure()
         plt.plot(radia, timings_query)
         plt.title(f" {num_queries} queries for radius = 0.2")
@@ -248,3 +250,4 @@ if __name__ == '__main__':
         plt.xlabel("Radius")
         plt.ylabel("Duration (sec)")
         plt.legend()
+        plt.show()
