@@ -51,36 +51,28 @@ here = Path(__file__).parent
 #
 
 
-def brute_force_spherical(queries, supports, radius):
-    # assert len(queries.shape) == 2 and queries.shape[1] == 3
-    # assert len(supports.shape) == 2 and supports.shape[1] == 3
-    
-    supports = supports[:, None] # shape [N, 1 3]
-    queries = queries[None] # shape [1, M, 3]
-    
-    dist = np.linalg.norm(supports - queries, axis=-1)
-    
-    valid_ids = np.argwhere(dist <= radius) # shape [N, M]
-    
-    return valid_ids.transpose()
+def brute_force_spherical(
+        queries: np.ndarray,  # (N, 3)
+        supports: np.ndarray,  # (M, 3)
+        radius: np.ndarray) -> List[np.ndarray]:
+    # [1, N, 3] - [M, 1, 3]
+    queries = np.expand_dims(queries, axis=1)
+    supports_exp = np.expand_dims(supports, axis=0)
+    distances = np.linalg.norm(supports_exp-queries, axis=-1)
+    neighborhood_indices = np.argwhere(distances <= radius)
+    return neighborhood_indices
 
 
-def brute_force_KNN(queries, supports, k):
-    # assert len(queries.shape) == 2 and queries.shape[1] == 3
-    # assert len(supports.shape) == 2 and supports.shape[1] == 3
-    
-    supports = supports[:, None] # shape [N, 1 3]
-    queries = queries[None] # shape [1, M, 3]
-    
-    dist = np.linalg.norm(supports - queries, axis=-1) # shape [N, M]
-    
-    sorted_sample_id = np.argsort(dist, axis=0) # for each query, order samples by growing distance
-    closest_sample_id = sorted_sample_id[:k] # keep the k closest sample for each query point
-    
-    return closest_sample_id.transpose()
-
-
-
+def brute_force_KNN(
+    queries: np.ndarray,
+    supports: np.ndarray,
+    k: int = 100
+) -> np.ndarray:
+    queries = np.expand_dims(queries, axis=1)
+    supports_exp = np.expand_dims(supports, axis=0)
+    distances = np.linalg.norm(supports_exp-queries, axis=-1)
+    neighborhoods = np.argsort(distances)[:, :k]
+    return neighborhoods
 
 
 # ------------------------------------------------------------------------------------------
@@ -114,7 +106,7 @@ if __name__ == '__main__':
     #
 
     # If statement to skip this part if you want
-    if False:
+    if True:
 
         # Define the search parameters
         neighbors_num = 100
@@ -127,27 +119,28 @@ if __name__ == '__main__':
         queries = points[random_indices, :]
 
         # Search spherical
+        total_iterations = 1
         t0 = time.time()
-        neighborhoods = brute_force_spherical(queries, points, radius)
+        for _ in range(total_iterations):
+            neighborhoods = brute_force_spherical(queries, points, radius)
         t1 = time.time()
-
-        # Search KNN      
+        # Search KNN
         neighborhoods = brute_force_KNN(queries, points, neighbors_num)
         t2 = time.time()
 
         # Print timing results
-        print('{:d} spherical neighborhoods computed in {:.3f} seconds'.format(num_queries, t1 - t0))
+        print('{:d} spherical neighborhoods computed in {:.3f} seconds'.format(
+            num_queries, (t1 - t0)/total_iterations))
         print('{:d} KNN computed in {:.3f} seconds'.format(num_queries, t2 - t1))
 
         # Time to compute all neighborhoods in the cloud
-        total_spherical_time = points.shape[0] * (t1 - t0) / num_queries
+        total_spherical_time = points.shape[0] * \
+            (t1 - t0)/total_iterations / num_queries
         total_KNN_time = points.shape[0] * (t2 - t1) / num_queries
-        print('Computing spherical neighborhoods on whole cloud : {:.0f} hours'.format(total_spherical_time / 3600))
-        print('Computing KNN on whole cloud : {:.0f} hours'.format(total_KNN_time / 3600))
-
- 
-
-
+        print('Computing spherical neighborhoods on whole cloud : {:.0f} hours'.format(
+            total_spherical_time / 3600))
+        print('Computing KNN on whole cloud : {:.0f} hours'.format(
+            total_KNN_time / 3600))
 
     # KDTree neighborhoods
     # ********************
