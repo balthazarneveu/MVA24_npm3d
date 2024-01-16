@@ -33,9 +33,12 @@ from ply import write_ply, read_ply
 
 # Import time package
 import time
-
+from pathlib import Path
+from typing import List
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+
+here = Path(__file__).parent
 
 
 # ------------------------------------------------------------------------------------------
@@ -85,10 +88,9 @@ def brute_force_KNN(queries, supports, k):
 #           Main
 #       \**********/
 #
-# 
+#
 #   Here you can define the instructions that are called when you execute this file
 #
-
 if __name__ == '__main__':
 
     # Load point cloud
@@ -99,7 +101,7 @@ if __name__ == '__main__':
     #
 
     # Path of the file
-    file_path = '../../data/indoor_scan.ply'
+    file_path = here.parent/'data'/'indoor_scan.ply'
 
     # Load point cloud
     data = read_ply(file_path)
