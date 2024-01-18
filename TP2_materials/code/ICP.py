@@ -115,6 +115,8 @@ if __name__ == '__main__':
     # Transformation estimation
     # *************************
     #
+    out_dir = here/"_out"
+    out_dir.mkdir(exist_ok=True, parents=True)
 
     # If statement to skip this part if wanted
     if True:
@@ -136,7 +138,8 @@ if __name__ == '__main__':
         bunny_r_opt = R.dot(bunny_r) + T
 
         # Save cloud
-        write_ply('../bunny_r_opt', [bunny_r_opt.T], ['x', 'y', 'z'])
+        
+        write_ply(out_dir/'bunny_r_opt', [bunny_r_opt.T], ['x', 'y', 'z'])
 
         # Compute RMS
         distances2_before = np.sum(np.power(bunny_r - bunny_o, 2), axis=0)
