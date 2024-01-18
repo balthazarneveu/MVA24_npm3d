@@ -34,9 +34,9 @@ from sklearn.neighbors import KDTree
 # Import functions to read and write ply files
 from ply import write_ply, read_ply
 from visu import show_ICP
-
+from pathlib import Path
 import sys
-
+here = Path(__file__).parent
 
 #------------------------------------------------------------------------------------------
 #
@@ -120,8 +120,8 @@ if __name__ == '__main__':
     if True:
 
         # Cloud paths
-        bunny_o_path = '../data/bunny_original.ply'
-        bunny_r_path = '../data/bunny_returned.ply'
+        bunny_o_path = here/'../data/bunny_original.ply'
+        bunny_r_path = here/'../data/bunny_returned.ply'
 
 		# Load clouds
         bunny_o_ply = read_ply(bunny_o_path)
