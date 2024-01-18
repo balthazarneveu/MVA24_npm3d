@@ -36,6 +36,7 @@ from ply import write_ply, read_ply
 from visu import show_ICP
 from pathlib import Path
 from typing import List, Tuple
+from sklearn.neighbors import KDTree
 import sys
 here = Path(__file__).parent
 
@@ -60,6 +61,7 @@ def best_rigid_transform(dat: np.ndarray, ref: np.ndarray) -> Tuple[np.ndarray, 
            T = (d x 1) translation vector
            Such that R * data + T is aligned on ref
     '''
+    assert dat.shape == ref.shape, f"{dat.shape} =! {ref.shape}"
     dat_m = np.mean(dat, axis=1, keepdims=True)
     ref_m = np.mean(ref, axis=1, keepdims=True)
     dat_c = dat - dat_m
@@ -74,11 +76,11 @@ def best_rigid_transform(dat: np.ndarray, ref: np.ndarray) -> Tuple[np.ndarray, 
     return rot, ref_m - rot.dot(dat_m)
 
 
-def icp_point_to_point(data, ref, max_iter, RMS_threshold):
+def icp_point_to_point(dat, ref, max_iter, RMS_threshold):
     '''
     Iterative closest point algorithm with a point to point strategy.
     Inputs :
-        data = (d x N_data) matrix where "N_data" is the number of points and "d" the dimension
+        dat = (d x N_dat) matrix where "N_dat" is the number of points and "d" the dimension
         ref = (d x N_ref) matrix where "N_ref" is the number of points and "d" the dimension
         max_iter = stop condition on the number of iterations
         RMS_threshold = stop condition on the distance
@@ -93,15 +95,38 @@ def icp_point_to_point(data, ref, max_iter, RMS_threshold):
     '''
 
     # Variable for aligned data
-    data_aligned = np.copy(data)
+    data_aligned = np.copy(dat)
+    leaf_size = 2
+    tree = KDTree(ref.T, leaf_size=leaf_size, metric='minkowski')
 
     # Initiate lists
     R_list = []
     T_list = []
     neighbors_list = []
     RMS_list = []
-
+    d = ref.shape[-2]
+    rot_prev = np.eye(d)
+    trans_prev = np.zeros((d, 1))
     # YOUR CODE
+
+    for it in range(max_iter):
+        ref_nearest_index = tree.query(data_aligned.T, k=1, return_distance=False)[:, 0]
+        ref_nearest = ref[:, ref_nearest_index]
+        neighbors_list.append(ref_nearest_index.copy())
+        rot, trans = best_rigid_transform(data_aligned, ref_nearest)
+        
+        data_aligned = np.dot(rot, data_aligned) + trans
+        
+        trans = np.dot(rot, trans_prev) + trans
+        rot = np.dot(rot, rot_prev)
+        rot_prev = rot
+        trans_prev = trans
+        
+        R_list.append(rot.copy())
+        T_list.append(trans.copy())
+        # data_aligned 
+        rms = np.sqrt(np.linalg.norm(data_aligned - ref_nearest, axis=0).mean())
+        RMS_list.append(rms)
 
     return data_aligned, R_list, T_list, neighbors_list, RMS_list
 
@@ -124,7 +149,7 @@ if __name__ == '__main__':
     out_dir.mkdir(exist_ok=True, parents=True)
 
     # If statement to skip this part if wanted
-    if True:
+    if False:
 
         # Cloud paths
         bunny_o_path = here/'../data/bunny_original.ply'
@@ -161,11 +186,11 @@ if __name__ == '__main__':
     #
 
     # If statement to skip this part if wanted
-    if False:
+    if True:
 
         # Cloud paths
-        ref2D_path = '../data/ref2D.ply'
-        data2D_path = '../data/data2D.ply'
+        ref2D_path = here/'../data/ref2D.ply'
+        data2D_path = here/'../data/data2D.ply'
 
         # Load clouds
         ref2D_ply = read_ply(ref2D_path)
