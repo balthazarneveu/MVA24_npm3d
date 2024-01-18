@@ -108,23 +108,21 @@ def icp_point_to_point(dat, ref, max_iter, RMS_threshold):
     rot_prev = np.eye(d)
     trans_prev = np.zeros((d, 1))
     # YOUR CODE
-
+    rms = np.inf
     for it in range(max_iter):
+        if rms < RMS_threshold:
+            break
         ref_nearest_index = tree.query(data_aligned.T, k=1, return_distance=False)[:, 0]
         ref_nearest = ref[:, ref_nearest_index]
         neighbors_list.append(ref_nearest_index.copy())
         rot, trans = best_rigid_transform(data_aligned, ref_nearest)
-        
         data_aligned = np.dot(rot, data_aligned) + trans
-        
         trans = np.dot(rot, trans_prev) + trans
         rot = np.dot(rot, rot_prev)
         rot_prev = rot
         trans_prev = trans
-        
         R_list.append(rot.copy())
         T_list.append(trans.copy())
-        # data_aligned 
         rms = np.sqrt(np.linalg.norm(data_aligned - ref_nearest, axis=0).mean())
         RMS_list.append(rms)
 
@@ -205,15 +203,20 @@ if __name__ == '__main__':
         show_ICP(data2D, ref2D, R_list, T_list, neighbors_list)
 
         # Plot RMS
+        plt.close()
+        plt.figure()
         plt.plot(RMS_list)
+        plt.ylim(0, None)
+        plt.grid()
+        plt.title("RMS evolution")
         plt.show()
 
     # If statement to skip this part if wanted
-    if False:
+    if True:
 
         # Cloud paths
-        bunny_o_path = '../data/bunny_original.ply'
-        bunny_p_path = '../data/bunny_perturbed.ply'
+        bunny_o_path = here/'../data/bunny_original.ply'
+        bunny_p_path = here/'../data/bunny_perturbed.ply'
 
         # Load clouds
         bunny_o_ply = read_ply(bunny_o_path)
