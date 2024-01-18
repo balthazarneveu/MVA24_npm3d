@@ -7,4 +7,5 @@ MVA class 2023 - 3D Point clouds
 - [Balthazar Neveu](https://github.com/balthazarneveu)
 
 # Report
-- TP01: [instructions](/TP01_Structures_Neighborhoods.pdf) | [report](/TP01_report.pdf) | [docx](/TP01_report.docx)
+- TP1: [instructions](/TP1_Structures_Neighborhoods.pdf) | [report](/TP1_report.pdf)
+- TP2 : [instructions](/TP2_Registration_ICP.pdf) | [report](/TP2_report.pdf)
