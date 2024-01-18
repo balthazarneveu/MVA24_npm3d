@@ -5,23 +5,23 @@
 #      0===================================0
 #
 #
-#------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------
 #
 #      Script of the practical session
 #
-#------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------
 #
 #      Hugues THOMAS - 17/01/2018
 #
 
 
-#------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------
 #
 #          Imports and global variables
 #      \**********************************/
 #
 
- 
+
 # Import numpy package and name it "np"
 import numpy as np
 
@@ -35,10 +35,11 @@ from sklearn.neighbors import KDTree
 from ply import write_ply, read_ply
 from visu import show_ICP
 from pathlib import Path
+from typing import List, Tuple
 import sys
 here = Path(__file__).parent
 
-#------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------
 #
 #           Functions
 #       \***************/
@@ -48,7 +49,7 @@ here = Path(__file__).parent
 #
 
 
-def best_rigid_transform(dat, ref):
+def best_rigid_transform(dat: np.ndarray, ref: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     '''
     Computes the least-squares best-fit transform that maps corresponding points data to ref.
     Inputs :
@@ -85,7 +86,7 @@ def icp_point_to_point(data, ref, max_iter, RMS_threshold):
         neighbors_list = At each iteration, you search the nearest neighbors of each data point in
         the ref cloud and this obtain a (1 x N_data) array of indices. This is the list of those
         arrays at each iteration
-           
+
     '''
 
     # Variable for aligned data
@@ -102,8 +103,7 @@ def icp_point_to_point(data, ref, max_iter, RMS_threshold):
     return data_aligned, R_list, T_list, neighbors_list, RMS_list
 
 
-
-#------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------
 #
 #           Main
 #       \**********/
@@ -112,9 +112,8 @@ def icp_point_to_point(data, ref, max_iter, RMS_threshold):
 #   Here you can define the instructions that are called when you execute this file
 #
 
-
 if __name__ == '__main__':
-   
+
     # Transformation estimation
     # *************************
     #
@@ -128,7 +127,7 @@ if __name__ == '__main__':
         bunny_o_path = here/'../data/bunny_original.ply'
         bunny_r_path = here/'../data/bunny_returned.ply'
 
-		# Load clouds
+        # Load clouds
         bunny_o_ply = read_ply(bunny_o_path)
         bunny_r_ply = read_ply(bunny_r_path)
         bunny_o = np.vstack((bunny_o_ply['x'], bunny_o_ply['y'], bunny_o_ply['z']))
@@ -141,7 +140,7 @@ if __name__ == '__main__':
         bunny_r_opt = R.dot(bunny_r) + T
 
         # Save cloud
-        
+
         write_ply(out_dir/'bunny_r_opt', [bunny_r_opt.T], ['x', 'y', 'z'])
 
         # Compute RMS
@@ -153,7 +152,6 @@ if __name__ == '__main__':
         print('Average RMS between points :')
         print('Before = {:.3f}'.format(RMS_before))
         print(' After = {:.3f}'.format(RMS_after))
-   
 
     # Test ICP and visualize
     # **********************
@@ -165,23 +163,22 @@ if __name__ == '__main__':
         # Cloud paths
         ref2D_path = '../data/ref2D.ply'
         data2D_path = '../data/data2D.ply'
-        
+
         # Load clouds
         ref2D_ply = read_ply(ref2D_path)
         data2D_ply = read_ply(data2D_path)
         ref2D = np.vstack((ref2D_ply['x'], ref2D_ply['y']))
-        data2D = np.vstack((data2D_ply['x'], data2D_ply['y']))        
+        data2D = np.vstack((data2D_ply['x'], data2D_ply['y']))
 
         # Apply ICP
         data2D_opt, R_list, T_list, neighbors_list, RMS_list = icp_point_to_point(data2D, ref2D, 10, 1e-4)
-        
+
         # Show ICP
         show_ICP(data2D, ref2D, R_list, T_list, neighbors_list)
-        
+
         # Plot RMS
         plt.plot(RMS_list)
         plt.show()
-        
 
     # If statement to skip this part if wanted
     if False:
@@ -189,7 +186,7 @@ if __name__ == '__main__':
         # Cloud paths
         bunny_o_path = '../data/bunny_original.ply'
         bunny_p_path = '../data/bunny_perturbed.ply'
-        
+
         # Load clouds
         bunny_o_ply = read_ply(bunny_o_path)
         bunny_p_ply = read_ply(bunny_p_path)
@@ -198,11 +195,10 @@ if __name__ == '__main__':
 
         # Apply ICP
         bunny_p_opt, R_list, T_list, neighbors_list, RMS_list = icp_point_to_point(bunny_p, bunny_o, 25, 1e-4)
-        
+
         # Show ICP
         show_ICP(bunny_p, bunny_o, R_list, T_list, neighbors_list)
-        
+
         # Plot RMS
         plt.plot(RMS_list)
         plt.show()
-
