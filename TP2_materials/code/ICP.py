@@ -48,23 +48,26 @@ here = Path(__file__).parent
 #
 
 
-def best_rigid_transform(data, ref):
+def best_rigid_transform(dat, ref):
     '''
     Computes the least-squares best-fit transform that maps corresponding points data to ref.
     Inputs :
-        data = (d x N) matrix where "N" is the number of points and "d" the dimension
+         dat = (d x N) matrix where "N" is the number of points and "d" the dimension
          ref = (d x N) matrix where "N" is the number of points and "d" the dimension
     Returns :
            R = (d x d) rotation matrix
            T = (d x 1) translation vector
            Such that R * data + T is aligned on ref
     '''
-
-    # YOUR CODE
-    R = np.eye(data.shape[0])
-    T = np.zeros((data.shape[0],1))
-
-    return R, T
+    dat_m = np.mean(dat, axis=1, keepdims=True)
+    ref_m = np.mean(ref, axis=1, keepdims=True)
+    dat_c = dat - dat_m
+    ref_c = ref - ref_m
+    dat_m.shape
+    h_mat = dat_c.dot(ref_c.T)
+    u, _, vt = np.linalg.svd(h_mat)
+    rot = (vt.T).dot(u.T)
+    return rot, ref_m - rot.dot(dat_m)
 
 
 def icp_point_to_point(data, ref, max_iter, RMS_threshold):
