@@ -68,6 +68,9 @@ def best_rigid_transform(dat: np.ndarray, ref: np.ndarray) -> Tuple[np.ndarray, 
     h_mat = dat_c.dot(ref_c.T)
     u, _, vt = np.linalg.svd(h_mat)
     rot = (vt.T).dot(u.T)
+    if np.linalg.det(rot) < 0:
+        u[:, -1] *= -1
+        rot = rot = (vt.T).dot(u.T)
     return rot, ref_m - rot.dot(dat_m)
 
 
