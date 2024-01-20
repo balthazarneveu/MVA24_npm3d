@@ -131,4 +131,30 @@ Just like we had notticed in the rigid alignment, the two bunnies can be perfect
 
 
 
+
+\pagebreak
+
+\section*{Bonus question: ICP on large point clouds}
+We're able to align the 2 large point clouds in approximately 5 seconds with an error of roughly 50cm. Building the KD tree takes quite some time (4.6s). Error seems to slightly increase, one would have to keep an history of the transformations to keep the best one. But the issue is that to pick the best registration, you'd need to compute on a lot of points. Whether using 1k or 10k points, the minimum RMSE is not so different but the approximation of the RMSE on the current randomly selected points is quite noisy.
+Using 10k points provides less noisy RMSE estimates (see figure \ref{fig:real_scene_icp}) and given the KD tree configuration picked, is actually even faster than using 1k points. (see figure \ref{fig:real_scene_icp_true}). 
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.\linewidth]{figures/RMS_random_sampling_limit_1k_vs_10k.png}
+  \caption{True RMSE (estimated over the whole point cloud) when doing ICP over a random selection of 1000 and 10.000 matched points.}
+  \label{fig:real_scene_icp_true}
+\end{figure}
+
+% If we use a lot of points in the nearest neighbor search, it is more computationally expensive and looks more accurate.
+% Using less points (1000 points to match at each iteration) is faster but the criterion to decide if the algorithm has converged is definitely not as good, to actually know if the algorithm has converged, we would need to compute the RMS error on way more points. This can be seen in figure \ref* {fig:real_scene_icp}
+
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.\linewidth]{figures/RMS_APPROX_random_sampling_limit_1k_vs_10k.png}
+  \caption{RMSE approximated over 1000 and  10.000 matched points. This would be the criterion to decide if the algorithm has converged. Bottom: Top: horizontal axis is the number of iterations. Bottom: horizontal axis is the time spent in the registration, KD tree construction is ommitted but takes a few seconds.}
+  \label{fig:real_scene_icp}
+\end{figure}
+
 \end{document}
+
