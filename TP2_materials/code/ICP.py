@@ -232,4 +232,7 @@ if __name__ == '__main__':
 
         # Plot RMS
         plt.plot(RMS_list)
+        plt.grid()
+        plt.ylim(0, None)
+        plt.title("RMS evolution - ICP 3D")
         plt.show()

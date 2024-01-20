@@ -22,7 +22,7 @@
 %-------------------------------
 
 
-\section{Question 1: ICP}
+\section*{Question 1: ICP}
 \begin{figure}[ht]
     \centering
     \includegraphics[width=0.8\linewidth]{figures/bunny_icp_cloud_compare.png}
@@ -70,15 +70,66 @@ The estimated transformation matrix is quite close to the identity matrix since 
 
 \pagebreak
 
-\section{Question 2: Rigid transformation estimation}
+\section*{Question 2: Rigid transformation estimation}
 \begin{itemize}
-  \item 2 sets of matched points, $\text{RMS} = 0.$.
-Works perfectly because the input points are perfectly matched (no noise) and we use a closed form solution for the rigid transformation estimation.
-  \item ICP struggles because of a bad initialization and gets stuck in a local minimum (translation is not too bad).
+  \item We are dealing with 2 point clouds where the points are matched and there is no noise between them.
+  \item We obtain a perfect alignment $\text{RMS} = 0.$.
+Works perfectly because the input points are perfectly matched (no noise) and we use a \textbf{closed form solution} for the rigid transformation estimation.
+  \item ICP struggles because of a bad initialization and gets stuck in a local minimum (translation was not too bad though, see figure \ref{fig:CC_alignment_nok}).
 \end{itemize}
 
 
-For the real scene "Notre Dame des champs", we do not even know if the points are matched (we don't have the same amount of points.) 
+For the real raw scene "Notre Dame des champs", we do not have a matching between points (and we don't have the same amount of points.). One would have to first find matches, which is the purpose of ICP studied in the next section.
+
+\pagebreak
+\section*{Questions 3 and 4: ICP convergence}
+\subsection*{2D toy example}
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.4\linewidth]{figures/icp_2d_toy_example.png}
+  \caption{ICP 2D toy example:  RMS error as a function of the number of iterations.}
+  \label{fig:icp_toy_convergence}
+\end{figure}
+
+
+After the fifth iteration, the algorithm finished converging $\text{RMSE} = 0.2395$ as seen in \ref{fig:icp_toy_convergence}. It cannot reach zero because it's simply not doable, see the zoom in figure \ref{fig:icp_toy_convergence_zoom}.
+
+In the 2D toy example, we're matching a large reference point cloud (in blue) and a candidate smaller point cloud (in orange). 
+ICP will find the best rotation and 2D translations (3 degrees of freedom) and find the matches between the two point clouds (the whole candidate cloud with a subset of the reference cloud).
+Matches are shown in green in figure \ref{fig:icp_toy}.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.8\linewidth]{figures/icp_convergence.png}
+  \caption{ICP 2D toy example: nearest neighbor search pairs (matching in green). Initialization on the left, end of convergence on the right side.}
+  \label{fig:icp_toy}
+\end{figure}
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.4\linewidth]{figures/icp_2d_toy_example_zoom.png}
+  \caption{Zoom on the registered 2D point clous after the fifth iteration. The algorithm has converged and due to the nature of the 2 points clouds, it does not seem possible to reach a smaller RMS error although the nature of our brain would prefer the vertical and horizontal lines to be aligned even if the distance was higher.}
+  \label{fig:icp_toy_convergence_zoom}
+\end{figure}
+
+\pagebreak
+\subsection*{3D ICP}
+Just like we had notticed in the rigid alignment, the two bunnies can be perfectly aligned ($RMSE=0$). There is \textbf{a convergence acceleration} near the end, probably due to the fact although visually we don't see much differences in terms of transformation between steps 15 to 18. The algorithm is able to suddenly refine the matches. (\textit{Visualizing the rotation and translation errors would probably show that the convergence was almost finished earlier.})
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.8\linewidth]{figures/icp3d_rms.png}
+  \caption{ICP 3D RMSE. Convergence }
+  \label{fig:icp_3D}
+\end{figure}
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.8\linewidth]{figures/icp3d_convergence.png}
+  \caption{ICP 3D example: Initialization on the left, end of convergence on the right side. Registration in the end here.}
+  \label{fig:icp_3D}
+\end{figure}
+
+
 
 
 \end{document}
