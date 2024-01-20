@@ -325,6 +325,8 @@ if __name__ == '__main__':
 
         # for leaf_size in [200, 100, 20]:
         # for leaf_size in [50, 100, 150]:
+        true_rmse = True
+        # true_rmse = False
         for leaf_size in [150]:
             t_build_tree = time.time()
             print("Build tree")
@@ -332,7 +334,7 @@ if __name__ == '__main__':
             t_build_tree = time.time() - t_build_tree
             for sampling_limit in [1000, 10000]:
                 cloud_p_opt, R_list, T_list, neighbors_list, RMS_list, total_iter_time = icp_point_to_point_fast(
-                    cloud_p, cloud_o, 20, 1e-4, tree=tree, sampling_limit=sampling_limit, true_rmse=True)
+                    cloud_p, cloud_o, 20, 1e-4, tree=tree, sampling_limit=sampling_limit, true_rmse=true_rmse)
                 # Plot RMS
                 plt.subplot(211)
                 plt.plot(RMS_list, "-o", label=f"sampling_limit ={sampling_limit} - KD{leaf_size}")
@@ -342,15 +344,16 @@ if __name__ == '__main__':
                          f" - Total Time {t_build_tree+total_iter_time:.2f}s (={total_iter_time:.2f} + KD{leaf_size} {t_build_tree:.2f}s)")
         plt.subplot(211)
         plt.xlabel("iteration")
-        plt.ylabel("RMS")
+        ylabel = "RMSE" if true_rmse else "RMSE (approximated)"
+        plt.ylabel(ylabel)
         plt.grid()
         plt.legend()
         plt.ylim(0.5, None)
         plt.subplot(212)
         plt.xlabel("elapsed time")
-        plt.ylabel("RMS")
+        plt.ylabel(ylabel)
         plt.grid()
         plt.legend()
         plt.ylim(0.5, None)
-        plt.suptitle("RMS evolution - ICP 3D")
+        plt.suptitle(f"{ylabel} evolution - ICP 3D")
         plt.show()
