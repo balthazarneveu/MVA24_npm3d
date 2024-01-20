@@ -37,6 +37,8 @@ from visu import show_ICP
 from pathlib import Path
 from typing import List, Tuple
 from sklearn.neighbors import KDTree
+from tqdm import tqdm
+import time
 import sys
 here = Path(__file__).parent
 
@@ -129,6 +131,75 @@ def icp_point_to_point(dat, ref, max_iter, RMS_threshold):
     return data_aligned, R_list, T_list, neighbors_list, RMS_list
 
 
+def icp_point_to_point_fast(dat, ref, max_iter, RMS_threshold, tree=None, sampling_limit=100, true_rmse=True):
+    '''
+    Iterative closest point algorithm with a point to point strategy.
+    Inputs :
+        dat = (d x N_dat) matrix where "N_dat" is the number of points and "d" the dimension
+        ref = (d x N_ref) matrix where "N_ref" is the number of points and "d" the dimension
+        max_iter = stop condition on the number of iterations
+        RMS_threshold = stop condition on the distance
+        Tree = pre-buit KDTree (leaf size=150 is a good value)
+        true_rmse = Full RMSE computation
+    Returns :
+        data_aligned = data aligned on reference cloud
+        R_list = list of the (d x d) rotation matrices found at each iteration
+        T_list = list of the (d x 1) translation vectors found at each iteration
+        neighbors_list = At each iteration, you search the nearest neighbors of each data point in
+        the ref cloud and this obtain a (1 x N_data) array of indices. This is the list of those
+        arrays at each iteration
+        total = total time spent in the function (for benchmarking)
+
+    '''
+
+    # Variable for aligned data
+    data_aligned = np.copy(dat)
+    if tree is None:
+        leaf_size = 150
+        tree = KDTree(ref.T, leaf_size=leaf_size, metric='minkowski')
+        print("Done KDTree")
+    # Initiate lists
+    R_list = []
+    T_list = []
+    neighbors_list = []
+    RMS_list = []
+    d = ref.shape[-2]
+    rot_prev = np.eye(d)
+    trans_prev = np.zeros((d, 1))
+    # YOUR CODE
+    rms = np.inf
+    total = 0.
+    for it in tqdm(range(max_iter)):
+        if rms < RMS_threshold:
+            break
+        t0 = time.time()
+        selection_indexes = np.random.choice(data_aligned.shape[-1], size=sampling_limit, replace=False)
+        data_selection = data_aligned[:, selection_indexes]
+        ref_nearest_index = tree.query(data_selection.T, k=1, return_distance=False)[:, 0]
+        ref_nearest = ref[:, ref_nearest_index]
+        neighbors_list.append(ref_nearest_index.copy())
+        rot, trans = best_rigid_transform(data_selection, ref_nearest)
+        data_aligned = np.dot(rot, data_aligned) + trans
+        trans = np.dot(rot, trans_prev) + trans
+        rot = np.dot(rot, rot_prev)
+        rot_prev = rot
+        trans_prev = trans
+        R_list.append(rot.copy())
+        T_list.append(trans.copy())
+        t1 = time.time()
+        total = t1-t0
+        if not true_rmse:
+            rms = np.sqrt(np.linalg.norm(data_aligned[:, selection_indexes] - ref_nearest, axis=0).mean())
+        else:
+            # Compute RMSE on the whole point cloud - not taken into account in the timing
+            ref_nearest_index = tree.query(data_aligned.T, k=1, return_distance=False)[:, 0]
+            ref_nearest = ref[:, ref_nearest_index]
+            rms = np.sqrt(np.linalg.norm(data_aligned - ref_nearest, axis=0).mean())
+        RMS_list.append(rms)
+
+    return data_aligned, R_list, T_list, neighbors_list, RMS_list, total
+
+
 # ------------------------------------------------------------------------------------------
 #
 #           Main
@@ -184,7 +255,7 @@ if __name__ == '__main__':
     #
 
     # If statement to skip this part if wanted
-    if True:
+    if False:
 
         # Cloud paths
         ref2D_path = here/'../data/ref2D.ply'
@@ -212,7 +283,7 @@ if __name__ == '__main__':
         plt.show()
 
     # If statement to skip this part if wanted
-    if True:
+    if False:
 
         # Cloud paths
         bunny_o_path = here/'../data/bunny_original.ply'
@@ -235,4 +306,51 @@ if __name__ == '__main__':
         plt.grid()
         plt.ylim(0, None)
         plt.title("RMS evolution - ICP 3D")
+        plt.show()
+
+        # If statement to skip this part if wanted
+    if True:
+
+        # Cloud paths
+        cloud_o_path = here/'../data/Notre_Dame_Des_Champs_1.ply'
+        cloud_p_path = here/'../data/Notre_Dame_Des_Champs_2.ply'
+
+        # Load clouds
+        cloud_o_ply = read_ply(cloud_o_path)
+        cloud_p_ply = read_ply(cloud_p_path)
+        cloud_o = np.vstack((cloud_o_ply['x'], cloud_o_ply['y'], cloud_o_ply['z']))
+        cloud_p = np.vstack((cloud_p_ply['x'], cloud_p_ply['y'], cloud_p_ply['z']))
+
+        # Apply ICP
+
+        # for leaf_size in [200, 100, 20]:
+        # for leaf_size in [50, 100, 150]:
+        for leaf_size in [150]:
+            t_build_tree = time.time()
+            print("Build tree")
+            tree = KDTree(cloud_o.T, leaf_size=leaf_size, metric='minkowski')
+            t_build_tree = time.time() - t_build_tree
+            for sampling_limit in [1000, 10000]:
+                cloud_p_opt, R_list, T_list, neighbors_list, RMS_list, total_iter_time = icp_point_to_point_fast(
+                    cloud_p, cloud_o, 20, 1e-4, tree=tree, sampling_limit=sampling_limit, true_rmse=True)
+                # Plot RMS
+                plt.subplot(211)
+                plt.plot(RMS_list, "-o", label=f"sampling_limit ={sampling_limit} - KD{leaf_size}")
+                plt.subplot(212)
+                plt.plot(np.linspace(0, total_iter_time, len(RMS_list)), RMS_list,
+                         "-o", label=f"sampling_limit ={sampling_limit} - KD{leaf_size}" +
+                         f" - Total Time {t_build_tree+total_iter_time:.2f}s (={total_iter_time:.2f} + KD{leaf_size} {t_build_tree:.2f}s)")
+        plt.subplot(211)
+        plt.xlabel("iteration")
+        plt.ylabel("RMS")
+        plt.grid()
+        plt.legend()
+        plt.ylim(0.5, None)
+        plt.subplot(212)
+        plt.xlabel("elapsed time")
+        plt.ylabel("RMS")
+        plt.grid()
+        plt.legend()
+        plt.ylim(0.5, None)
+        plt.suptitle("RMS evolution - ICP 3D")
         plt.show()
