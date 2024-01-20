@@ -71,10 +71,10 @@ The estimated transformation matrix is quite close to the identity matrix since 
 
 \section*{Question 2: Rigid transformation estimation}
 \begin{itemize}
-  \item We are dealing with 2 point clouds where the points are matched and there is no noise between them.
-  \item We obtain a perfect alignment $\text{RMS} = 0.$.
-Works perfectly because the input points are perfectly matched (no noise) and we use a \textbf{closed form solution} for the rigid transformation estimation.
-  \item ICP struggles because of a bad initialization and gets stuck in a local minimum (translation was not too bad though, see figure \ref{fig:CC_alignment_nok}).
+  \item We are dealing with 2 pre-matched point clouds without any noise.
+  \item We obtain a perfect alignment $\text{RMS} = 0$.
+It works perfectly because the input points are perfectly matching (no noise or sampling disparity) and we use a \textbf{closed form solution} for the rigid transformation estimation.
+  \item ICP struggles because of a bad initialization and gets stuck in a local minimum (a good estimation of the translation could still be estimated, see figure \ref{fig:CC_alignment_nok}).
 \end{itemize}
 
 
@@ -91,9 +91,9 @@ For the real raw scene "Notre Dame des champs", we do not have a matching betwee
 \end{figure}
 
 
-After the fifth iteration, the algorithm finished converging $\text{RMSE} = 0.2395$ as seen in \ref{fig:icp_toy_convergence}. It cannot reach zero because it's simply not doable, see the zoom in figure \ref{fig:icp_toy_convergence_zoom}.
+After the fifth iteration, the algorithm finished converging with an $\text{RMSE}$ of $0.2395$ as seen in \ref{fig:icp_toy_convergence}. It cannot reach zero because both clouds have been sampled at different positions, see the zoom in figure \ref{fig:icp_toy_convergence_zoom}.
 
-In the 2D toy example, we're matching a large reference point cloud (in blue) and a candidate smaller point cloud (in orange). 
+In the 2D toy example, we are matching a large reference point cloud (in blue) and a candidate smaller point cloud (in orange). 
 ICP will find the best rotation and 2D translations (3 degrees of freedom) and find the matches between the two point clouds (the whole candidate cloud with a subset of the reference cloud).
 Matches are shown in green in figure \ref{fig:icp_toy}.
 
@@ -107,24 +107,24 @@ Matches are shown in green in figure \ref{fig:icp_toy}.
 \begin{figure}[ht]
   \centering
   \includegraphics[width=0.4\linewidth]{figures/icp_2d_toy_example_zoom.png}
-  \caption{Zoom on the registered 2D point clous after the fifth iteration. The algorithm has converged and due to the nature of the 2 points clouds, it does not seem possible to reach a smaller RMS error although the nature of our brain would prefer the vertical and horizontal lines to be aligned even if the distance was higher.}
+  \caption{Zoom on the registered 2D point clous after the fifth iteration. The algorithm has converged and the pointwise distances can indeed hardly be smaller. Yet, as highlighted by the Gestalt theory, the nature of our brain tricks us into extrapolating shapes and to consider that the alignment could be improved.}
   \label{fig:icp_toy_convergence_zoom}
 \end{figure}
 
 \pagebreak
 \subsection*{3D ICP}
-Just like we had notticed in the rigid alignment, the two bunnies can be perfectly aligned ($RMSE=0$). There is \textbf{a convergence acceleration} near the end, probably due to the fact although visually we don't see much differences in terms of transformation between steps 15 to 18. The algorithm is able to suddenly refine the matches. (\textit{Visualizing the rotation and translation errors would probably show that the convergence was almost finished earlier.})
+Just like we had noticed in the rigid alignment, the two bunnies can be perfectly aligned ($RMSE=0$). There is \textbf{a convergence acceleration} near the end, although the changes are hardly noticeable visually between steps 15 to 18 (\textit{Visualizing the rotation and translation errors would probably show that the convergence was almost finished earlier.})
 \begin{figure}[ht]
   \centering
   \includegraphics[width=0.8\linewidth]{figures/icp3d_rms.png}
-  \caption{ICP 3D RMSE. Convergence }
+  \caption{Evolution of the RMSE using the ICP algotithm on a 3D example.}
   \label{fig:icp_3D}
 \end{figure}
 
 \begin{figure}[ht]
   \centering
   \includegraphics[width=0.8\linewidth]{figures/icp3d_convergence.png}
-  \caption{ICP 3D example: Initialization on the left, end of convergence on the right side. Registration in the end here.}
+  \caption{ICP 3D example: Initialization on the left, end of convergence on the right side.}
   \label{fig:icp_3D}
 \end{figure}
 
@@ -135,8 +135,8 @@ Just like we had notticed in the rigid alignment, the two bunnies can be perfect
 \pagebreak
 
 \section*{Bonus question: ICP on large point clouds}
-We're able to align the 2 large point clouds in approximately 5 seconds with an error of roughly 50cm. Building the KD tree takes quite some time (4.6s). Error seems to slightly increase, one would have to keep an history of the transformations to keep the best one. But the issue is that to pick the best registration, you'd need to compute on a lot of points. Whether using 1k or 10k points, the minimum RMSE is not so different but the approximation of the RMSE on the current randomly selected points is quite noisy.
-Using 10k points provides less noisy RMSE estimates (see figure \ref{fig:real_scene_icp}) and given the KD tree configuration picked, is actually even faster than using 1k points. (see figure \ref{fig:real_scene_icp_true}). 
+We are able to align the 2 large point clouds in approximately 5 seconds with an error of roughly 50cm. Building the KD tree takes most of the time (4.6s). The error seems to slightly increase, one should therefore keep an history of the transformations to keep the best one. However, it requires to compute the RMSE with a lot of points. Whether using 1k or 10k points, the minimum RMSE is not so different but the approximation of the RMSE on the current randomly selected points is quite noisy.
+Using 10k points provides less noisy RMSE estimates (see figure \ref{fig:real_scene_icp}) but takes longer to converge (see figure \ref{fig:real_scene_icp_true}). A viable solution is to start iterating with few points, then gradually increase the number of samples. It allows to refine the estimate, as well as stabilizing the variance of the empirical RMSE in order for the stopping condition to be more reliable.
 
 \begin{figure}[H]
   \centering
@@ -152,7 +152,7 @@ Using 10k points provides less noisy RMSE estimates (see figure \ref{fig:real_sc
 \begin{figure}[H]
   \centering
   \includegraphics[width=1.\linewidth]{figures/RMS_APPROX_random_sampling_limit_1k_vs_10k.png}
-  \caption{RMSE approximated over 1000 and  10.000 matched points. This would be the criterion to decide if the algorithm has converged. Bottom: Top: horizontal axis is the number of iterations. Bottom: horizontal axis is the time spent in the registration, KD tree construction is ommitted but takes a few seconds.}
+  \caption{Evolution of the RMSE approximated over 1000 and  10.000 matched points. This would be the criterion to decide if the algorithm has converged. Top: horizontal axis is the number of iterations. Bottom: horizontal axis is the time spent in the registration, KD tree construction is ommitted but takes a few seconds.}
   \label{fig:real_scene_icp}
 \end{figure}
 
