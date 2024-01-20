@@ -25,6 +25,7 @@
 # Basic libs
 import numpy as np
 import sys
+from pathlib import Path
 
 
 # Define PLY types
@@ -224,8 +225,11 @@ def write_ply(filename, field_list, field_names):
         return False
 
     # Add extension if not there
-    if not filename.endswith('.ply'):
-        filename += '.ply'
+    if isinstance(filename, Path):
+        filename = filename.with_suffix(".ply")
+    else:
+        if not filename.endswith('.ply'):
+            filename += '.ply'
 
     # open in text mode to write the header
     with open(filename, 'w') as plyfile:

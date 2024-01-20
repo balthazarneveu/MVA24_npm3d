@@ -42,7 +42,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 
-def show_ICP(data, ref, R_list, T_list, neighbors_list):
+def show_ICP(data, ref, R_list, T_list, neighbors_list, subsample=None):
     '''
     Show a succession of transformation obtained by ICP.
     Inputs :
@@ -59,6 +59,8 @@ def show_ICP(data, ref, R_list, T_list, neighbors_list):
     '''
 
     # Get the number of iteration
+    if subsample:
+        data = data.copy()[:, ::subsample]
     max_iter = len(R_list)
 
     # Get data dimension
