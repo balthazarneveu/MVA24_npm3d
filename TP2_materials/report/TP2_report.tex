@@ -39,19 +39,18 @@
 \end{figure}
 
 The ICP algorithm is very sensitive to initialization. For the bunny example (same geometry without noise), two different initializations provide very different results.
-Figure ~\ref{fig:CC_alignment_ok} shows a nearly perfect alignment, while Figure ~\ref{fig:CC_alignment_nok} shows a bad alignment probably due getting stuck in a local minimum.
+Figure ~\ref{fig:CC_alignment_ok} shows a nearly perfect alignment, while Figure ~\ref{fig:CC_alignment_nok} shows a bad alignment likely due to getting stuck in a local minimum.
 
 \pagebreak
 
 \begin{figure}[ht]
     \centering
     \includegraphics[width=0.8\linewidth]{figures/notre_dame_des_champs_registration.png}
-    \caption{Reference cloud in green - the largest cloud, misaligned candidate cloud in blue and ICP registration result in red $\text{RMSE}=1.39$. We're off by more than a meter in average after alignment,
-    we observe that objects have moved between these scenes so without outlier removal, we can't naturally expect a perfect alignment no matter the quality of the registration algorithm.}
+    \caption{Reference cloud in green - the largest cloud, misaligned candidate cloud in blue and ICP registration result in red $\text{RMSE}=1.39$. The registration is off by more than a meter on average, but the scene contains objects that moved between the scans: an outlier removal could strongly enhance the result of the registration algorithm.}
     \label{fig:CC_notredame}
 \end{figure}
 
-The estimated transformation matrix is quite close to the identity matrix since the misaligned was not pretty tiny. Seems like most of the misalignment source came from the ground not being perfectly aligned (the blue ground is not horizontal in figure ~\ref{fig:CC_notredame_z})
+The estimated transformation matrix is quite close to the identity matrix since the misalignmen was quite small. It seems like most of the misalignment source came from the ground not being perfectly aligned (the blue ground is not horizontal in figure ~\ref{fig:CC_notredame_z})
 \begin{verbatim}
   Transformation matrix - Scale: fixed (1.0)
   0.999	0.008	0.032	6.017
@@ -132,6 +131,7 @@ Just like we had notticed in the rigid alignment, the two bunnies can be perfect
 
 
 
+
 \pagebreak
 
 \section*{Bonus question: ICP on large point clouds}
@@ -157,3 +157,4 @@ Using 10k points provides less noisy RMSE estimates (see figure \ref{fig:real_sc
 \end{figure}
 
 \end{document}
+
