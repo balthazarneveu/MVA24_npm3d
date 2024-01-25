@@ -23,6 +23,60 @@
 
 
 \section*{Question 1}
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.3\linewidth]{figures/cc_normals_10cm.png}
+  \includegraphics[width=0.3\linewidth]{figures/cc_normals_50cm.png}
+  \includegraphics[width=0.3\linewidth]{figures/cc_normals_2m.png}
+  
+  \caption{From left to right: 10cm, 50cm, 2m radiuses used to compute normals}
+  \label{fig:cc_normals}
+\end{figure}
+If the neighborhood radius is too small, we get noisy normals.
+If the neighborhood radius is too large, we get smoothed normals (makes edges curvy).
+
+
+\section*{Question 2}
+Picking the right radius is a tradeoff between noisy normals and smoothing.
+
+
+\section*{Question 3}
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=.9\linewidth]{figures/cc_normals_PCA_50cm_bigger_points.png}
+  \caption{50cm, radiuses local PCA used to compute normals}
+  \label{fig:local_pca}
+\end{figure}
+
+
+\section*{Question 4}
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=.9\linewidth]{figures/Schema.png}
+  \caption{Lidar acquisition leads to a specific points distribution. when combined with a fixed amount
+  of nearest neighbors used to compute normals, this leads to visible artficats in the normal maps.
+  } 
+  \label{fig:lidar}
+\end{figure}
+
+The combination of lidar acquisition and the use of a fixed amount of nearest neighbors 
+to compute normals leads to an anisotropic distribution of samples among each query.
+Fitting a plane on such a set is not suited, a plane cannot be properly fitted with nearest neighbors.
+
+The effect is also midly apparent when using a fixed radius because the radius may integrate other "beams" of the lidar.
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.46\linewidth]{figures/cc_normals_PCA_r=50cm_smooth.png}
+  \includegraphics[width=0.46\linewidth]{figures/cc_normals_PCA_50cm_k=30_nearest.png}
+  \includegraphics[width=0.46\linewidth]{figures/cc_normals_PCA_r=50cm_v2.png}
+  \includegraphics[width=0.46\linewidth]{figures/cc_normals_PCA_50cm_k=30_v2.png}
+  \caption{Left: 50cm radius local PCA used to compute normals. 
+  Right: 30 nearest neighbors used to compute normals.} 
+  \label{fig:local_PCA_neighbor}
+\end{figure}
+
 
 \end{document}
 
