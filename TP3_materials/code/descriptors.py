@@ -21,7 +21,7 @@
 #      \**********************************/
 #
 
- 
+
 # Import numpy package and name it "np"
 import numpy as np
 
@@ -36,7 +36,8 @@ from ply import write_ply, read_ply
 
 # Import time package
 import time
-
+from pathlib import Path
+here = Path(__file__).parent
 
 # ------------------------------------------------------------------------------------------
 #
@@ -48,14 +49,12 @@ import time
 #
 
 
-
 def PCA(points):
 
     eigenvalues = None
     eigenvectors = None
 
     return eigenvalues, eigenvectors
-
 
 
 def compute_local_PCA(query_points, cloud_points, radius):
@@ -83,18 +82,18 @@ def compute_features(query_points, cloud_points, radius):
 #           Main
 #       \**********/
 #
-# 
+#
 #   Here you can define the instructions that are called when you execute this file
 #
 
 if __name__ == '__main__':
-
+    cloud_path = here.parent/'data'/'Lille_street_small.ply'
     # PCA verification
     # ****************
     if True:
 
         # Load cloud as a [N x 3] matrix
-        cloud_path = '../data/Lille_street_small.ply'
+
         cloud_ply = read_ply(cloud_path)
         cloud = np.vstack((cloud_ply['x'], cloud_ply['y'], cloud_ply['z'])).T
 
@@ -111,13 +110,11 @@ if __name__ == '__main__':
         #   (the convention is always lambda_1 >= lambda_2 >= lambda_3)
         #
 
-		
     # Normal computation
     # ******************
     if False:
 
         # Load cloud as a [N x 3] matrix
-        cloud_path = '../data/Lille_street_small.ply'
         cloud_ply = read_ply(cloud_path)
         cloud = np.vstack((cloud_ply['x'], cloud_ply['y'], cloud_ply['z'])).T
 
@@ -127,4 +124,3 @@ if __name__ == '__main__':
 
         # Save cloud with normals
         write_ply('../Lille_street_small_normals.ply', (cloud, normals), ['x', 'y', 'z', 'nx', 'ny', 'nz'])
-		
