@@ -38,6 +38,8 @@ from typing import Tuple
 import time
 from pathlib import Path
 here = Path(__file__).parent
+out_dir = here / 'out'
+out_dir.mkdir(exist_ok=True, parents=True)
 
 # ------------------------------------------------------------------------------------------
 #
@@ -50,25 +52,29 @@ here = Path(__file__).parent
 
 
 def PCA(points: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    print(points.shape)
     eigenvalues = None
     eigenvectors = None
     barycenter = np.mean(points, axis=0)
     diff = points - barycenter
     cov_mat = np.dot(diff.T, diff)/points.shape[0]
-    print(cov_mat.shape)
     eigenvalues, eigenvectors = np.linalg.eigh(cov_mat)
     # Take the first component to get the normal
     return eigenvalues, eigenvectors
 
 
-def compute_local_PCA(query_points, cloud_points, radius):
+def compute_local_PCA(query_points: np.ndarray, cloud_points: np.ndarray, radius: float = None, k: int = None) -> Tuple[np.ndarray, np.ndarray]:
+    assert (k is not None) or (radius is not None), "You must set k or radius"
 
     # This function needs to compute PCA on the neighborhoods of all query_points in cloud_points
-
-    all_eigenvalues = np.zeros((cloud.shape[0], 3))
-    all_eigenvectors = np.zeros((cloud.shape[0], 3, 3))
-
+    tree = KDTree(cloud_points, leaf_size=40, metric='minkowski')
+    if radius is not None:
+        neighbors = tree.query_radius(query_points, radius)
+    else:
+        neighbors = tree.query(query_points, k=k, return_distance=False)
+    all_eigenvalues = np.zeros((query_points.shape[0], 3))
+    all_eigenvectors = np.zeros((query_points.shape[0], 3, 3))
+    for i in range(len(neighbors)):
+        all_eigenvalues[i], all_eigenvectors[i] = PCA(cloud_points[neighbors[i]])
     return all_eigenvalues, all_eigenvectors
 
 
@@ -95,7 +101,7 @@ if __name__ == '__main__':
     cloud_path = here.parent/'data'/'Lille_street_small.ply'
     # PCA verification
     # ****************
-    if True:
+    if False:
 
         # Load cloud as a [N x 3] matrix
 
@@ -117,15 +123,22 @@ if __name__ == '__main__':
 
     # Normal computation
     # ******************
-    if False:
-
+    if True:
         # Load cloud as a [N x 3] matrix
         cloud_ply = read_ply(cloud_path)
         cloud = np.vstack((cloud_ply['x'], cloud_ply['y'], cloud_ply['z'])).T
 
-        # Compute PCA on the whole cloud
-        all_eigenvalues, all_eigenvectors = compute_local_PCA(cloud, cloud, 0.50)
+        # # Compute PCA on the whole cloud
+        all_eigenvalues, all_eigenvectors = compute_local_PCA(cloud, cloud, radius=0.50)
         normals = all_eigenvectors[:, :, 0]
 
         # Save cloud with normals
-        write_ply('../Lille_street_small_normals.ply', (cloud, normals), ['x', 'y', 'z', 'nx', 'ny', 'nz'])
+        write_ply(str(out_dir/"Lille_street_small_normals.ply"), (cloud, normals), ['x', 'y', 'z', 'nx', 'ny', 'nz'])
+
+        # Compute PCA on the whole cloud - k=30
+        all_eigenvalues, all_eigenvectors = compute_local_PCA(cloud, cloud, k=30)
+        normals = all_eigenvectors[:, :, 0]
+
+        # Save cloud with normals
+        write_ply(str(out_dir/"Lille_street_small_normals_k=30.ply"),
+                  (cloud, normals), ['x', 'y', 'z', 'nx', 'ny', 'nz'])
