@@ -28,12 +28,15 @@
   \includegraphics[width=0.3\linewidth]{figures/cc_normals_10cm.png}
   \includegraphics[width=0.3\linewidth]{figures/cc_normals_50cm.png}
   \includegraphics[width=0.3\linewidth]{figures/cc_normals_2m.png}
-  
+  \includegraphics[width=0.3\linewidth]{figures/cc_normals_10cm_stopsign.png}
+  \includegraphics[width=0.3\linewidth]{figures/cc_normals_50cm_stopsign.png}
+  \includegraphics[width=0.3\linewidth]{figures/cc_normals_2m_stopsign.png}
   \caption{From left to right: 10cm, 50cm, 2m radiuses used to compute normals}
   \label{fig:cc_normals}
 \end{figure}
 If the neighborhood radius is too small, we get noisy normals.
 If the neighborhood radius is too large, we get smoothed normals (makes edges curvy).
+Stop sign normals are not recovered correctly (considered like a horizontal plane like the ground around it) when radius is too big.
 
 
 \section*{Question 2}
