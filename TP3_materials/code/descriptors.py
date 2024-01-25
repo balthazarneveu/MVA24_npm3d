@@ -129,16 +129,19 @@ if __name__ == '__main__':
         cloud = np.vstack((cloud_ply['x'], cloud_ply['y'], cloud_ply['z'])).T
 
         # # Compute PCA on the whole cloud
-        all_eigenvalues, all_eigenvectors = compute_local_PCA(cloud, cloud, radius=0.50)
-        normals = all_eigenvectors[:, :, 0]
+        for radius in [0.1, 0.2, 0.5]:
+            all_eigenvalues, all_eigenvectors = compute_local_PCA(cloud, cloud, radius=radius)
+            normals = all_eigenvectors[:, :, 0]
 
-        # Save cloud with normals
-        write_ply(str(out_dir/"Lille_street_small_normals.ply"), (cloud, normals), ['x', 'y', 'z', 'nx', 'ny', 'nz'])
+            # Save cloud with normals
+            write_ply(str(out_dir/f"Lille_street_small_normals_r={radius:.2f}.ply"),
+                      (cloud, normals), ['x', 'y', 'z', 'nx', 'ny', 'nz'])
 
         # Compute PCA on the whole cloud - k=30
-        all_eigenvalues, all_eigenvectors = compute_local_PCA(cloud, cloud, k=30)
-        normals = all_eigenvectors[:, :, 0]
+        for k in [30, 10, 6]:
+            all_eigenvalues, all_eigenvectors = compute_local_PCA(cloud, cloud, k=k)
+            normals = all_eigenvectors[:, :, 0]
 
         # Save cloud with normals
-        write_ply(str(out_dir/"Lille_street_small_normals_k=30.ply"),
+        write_ply(str(out_dir/f"Lille_street_small_normals_k={k}.ply"),
                   (cloud, normals), ['x', 'y', 'z', 'nx', 'ny', 'nz'])
