@@ -33,7 +33,7 @@ from sklearn.neighbors import KDTree
 
 # Import functions to read and write ply files
 from ply import write_ply, read_ply
-
+from typing import Tuple
 # Import time package
 import time
 from pathlib import Path
@@ -49,11 +49,16 @@ here = Path(__file__).parent
 #
 
 
-def PCA(points):
-
+def PCA(points: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    print(points.shape)
     eigenvalues = None
     eigenvectors = None
-
+    barycenter = np.mean(points, axis=0)
+    diff = points - barycenter
+    cov_mat = np.dot(diff.T, diff)/points.shape[0]
+    print(cov_mat.shape)
+    eigenvalues, eigenvectors = np.linalg.eigh(cov_mat)
+    # Take the first component to get the normal
     return eigenvalues, eigenvectors
 
 
