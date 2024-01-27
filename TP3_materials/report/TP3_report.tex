@@ -110,6 +110,37 @@ aliased because it is able integrate a sufficient amount of points, contrary to 
   \label{fig:local_PCA_neighbor_zoom}
 \end{figure}
 
+\section*{Question Bonus}
+We represent on Figure \ref{fig:verticality} the verticality which describes, as suggested by the name, the verticality of the predicted normals.
+On Figure \ref{fig:descriptors}, we simultaneously represent the linearity, the planarity and the sphericity. The linearity is maximal when a single
+eigenvalue numericaly dominates the 2 others, therefore indicating the presence of an elongated 1D vectorial space (also commonly called line).
+The planarity is maximal when 2 eigenvalues are equivalently scaled, while numerically dominating the third, indicating a plane. The sphericity is maximal when 
+all eigenvalues are numerically comparable, indicating that there is no favorised axis. This is typically the case for corners, textured areas, and objects of very small size.
+Figure \ref{fig:descriptors} highlighs how these descriptors do indeed describe the aforementioned features.
+
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.46\linewidth]{figures/verticality.png}
+  \caption{"verticality" descriptor computed for a radius of 20cm. Dark shades indicate a verticality of 0 and white shades a verticality of 1.
+  The descriptor accurately indicates surfaces orthogonal to the vertical axis.} 
+  \label{fig:verticality}
+\end{figure}
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.46\linewidth]{figures/lin_plan_sphe.png.png}
+  \caption{Local image descriptors computed for a radius of 20cm. The linearity (represented in red) accurately describes elongated objects such as poles.
+  The planarity (in green) accurately represents flat areas. The sphericity (in blue) represents corners, textures and small objects such as a tiled roof, the base of pole and car mirrors.
+  Note that the 3 descriptors never overlap, by design.} 
+  \label{fig:descriptors}
+\end{figure}
+
+
+
+
+
 
 \end{document}
 
