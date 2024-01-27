@@ -37,6 +37,8 @@ from typing import Tuple
 # Import time package
 import time
 from pathlib import Path
+from tqdm import tqdm
+
 here = Path(__file__).parent
 out_dir = here / 'out'
 out_dir.mkdir(exist_ok=True, parents=True)
@@ -73,17 +75,28 @@ def compute_local_PCA(query_points: np.ndarray, cloud_points: np.ndarray, radius
         neighbors = tree.query(query_points, k=k, return_distance=False)
     all_eigenvalues = np.zeros((query_points.shape[0], 3))
     all_eigenvectors = np.zeros((query_points.shape[0], 3, 3))
-    for i in range(len(neighbors)):
-        all_eigenvalues[i], all_eigenvectors[i] = PCA(cloud_points[neighbors[i]])
+    for i, neighbor in enumerate(tqdm(neighbors)):
+        all_eigenvalues[i], all_eigenvectors[i] = PCA(cloud_points[neighbor])
     return all_eigenvalues, all_eigenvectors
 
 
 def compute_features(query_points, cloud_points, radius):
-
-    verticality = None
-    linearity = None
-    planarity = None
-    sphericity = None
+    all_eigenvalues, all_eigenvectors = compute_local_PCA(
+        query_points,
+        cloud_points,
+        radius)
+    eps = 1e-8
+    
+    n = all_eigenvectors[:, :, 0]
+    l3 = all_eigenvalues[..., 0]
+    l2 = all_eigenvalues[..., 1]
+    l1 = all_eigenvalues[..., 2]
+    
+    
+    verticality = 2 * np.arcsin(np.abs(n[..., 2])) / np.pi
+    linearity = 1 - l2 / (l1 + eps)
+    planarity = (l2 - l3) / (l1 + eps)
+    sphericity = l3 / (l1 + eps)
 
     return verticality, linearity, planarity, sphericity
 
@@ -123,7 +136,7 @@ if __name__ == '__main__':
 
     # Normal computation
     # ******************
-    if True:
+    if False:
         # Load cloud as a [N x 3] matrix
         cloud_ply = read_ply(cloud_path)
         cloud = np.vstack((cloud_ply['x'], cloud_ply['y'], cloud_ply['z'])).T
@@ -145,3 +158,22 @@ if __name__ == '__main__':
         # Save cloud with normals
         write_ply(str(out_dir/f"Lille_street_small_normals_k={k}.ply"),
                   (cloud, normals), ['x', 'y', 'z', 'nx', 'ny', 'nz'])
+
+    # Normal computation
+    # ******************
+    if True:
+        # Load cloud as a [N x 3] matrix
+        cloud_ply = read_ply(cloud_path)
+        cloud = np.vstack((cloud_ply['x'], cloud_ply['y'], cloud_ply['z'])).T
+
+        # Compute PCA on the whole cloud - k=30
+        verticality, linearity, planarity, sphericity =\
+            compute_features(cloud, cloud, radius=0.2)
+        
+        # Save cloud with normals
+        write_ply(str(out_dir/f"Lille_street_small_normals_descriptors.ply"),
+                  (cloud, verticality, linearity,
+                   planarity, sphericity),
+                  ['x', 'y', 'z',
+                   'verticality', 'linearity',
+                   'planarity', 'sphericity'])
