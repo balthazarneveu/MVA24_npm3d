@@ -36,11 +36,11 @@
 \end{figure}
 If the neighborhood radius is too large, the observed geometry is no longer local and the normals are therefore oversmoothed.
 Figure \ref{fig:cc_normals} highlights this phenomenon: the normals of the car and of the stop sign pole cannot be recovered accurately when the radius is too large.
-If the neighborhood radius is too small, the estimated normal are inacurate because of the noise, but also because of the local variance separating samples.
-Independantly of the measurment noise, samples are indeed scattered randomly and separated by a certain distance; estimations based on a narrow neighborhood can therefore
+If the neighborhood radius is too small, the estimated normal are inaccurate because of the noise, but also because of the local variance separating samples.
+Independantly of the measurement noise, samples are indeed scattered randomly and separated by a certain distance; estimations based on a narrow neighborhood can therefore
 be prone to aliasing, which can appear as structured artefacts in the normal estimations. As highlighted by Robert Cook's "Stochastic Sampling in Computer Graphics 
 ", aliasing in such a stochastic sampling setting can also translate as a white noise in the normal estimation. This is visible in Fig \ref{fig:cc_normals} where both structured pattern
-and noise appear in the normal whe the radius is too short.
+and noise appear in the normal where the radius is too short.
 
 % If the neighborhood radius is too small, we get noisy normals.
 % If the neighborhood radius is too large, we get smoothed normals (makes edges curvy).
@@ -48,17 +48,23 @@ and noise appear in the normal whe the radius is too short.
 
 
 \section*{Question 2}
-The optimal radius must satisfy a tradeoff between noisy normals and smoothing.
+The radius choice depends on the application's constraints. If the goal is performance, you may trade a bit of larger radiuses for a faster computation. If the goal is quality (subjective term), you may consider larger radiuses. The optimal radius must satisfy a tradeoff between noisy normals and smoothing. There's at least a hard constraint where the radius must at least allow to get 3 points in each neighborhood to compute the normal. 
 
+\pagebreak
 
 \section*{Question 3}
-\begin{figure}[ht]
+See  Figure \ref{fig:local_pca}. When comparing side by side with the normals of CloudCompare, the results were similar (\textit{this merely acts as a unitary test})...
+
+\begin{figure}[h]
   \centering
-  \includegraphics[width=.9\linewidth]{figures/cc_normals_PCA_50cm_bigger_points.png}
-  \caption{50cm, radiuses local PCA used to compute normals}
+  \includegraphics[width=1.\linewidth]{figures/cc_normals_PCA_50cm_bigger_points.png}
+  \caption{50cm radiuses local PCA used to compute normals}
   \label{fig:local_pca}
 \end{figure}
 
+
+
+\pagebreak
 
 \section*{Question 4}
 % \begin{figure}[ht]
@@ -72,8 +78,8 @@ The optimal radius must satisfy a tradeoff between noisy normals and smoothing.
 
 We compare our results for a radius of 50cm or for $k=30$ neighbours in Figure \ref{fig:local_PCA_neighbor}. The $k-nn$ methods 
 produced more accurate results, and is able to recover the step of the sidewalk as well as the building corner. We posit that this is due
-to the localy-variable density of points: samples can be more sparse in flat areas than on textures. Therefore, $k-nn$ acts like
-an adaptive radius, and can naturally integrate a narrower area around details, where samples are abundant). The non uniformity of the
+to the localy-variable density of points: samples can be more sparse in flat areas than on textures. Therefore, \textbf{$k-nn$ acts like
+an adaptive radius}, and can naturally integrate a narrower area around details, where samples are abundant). The non uniformity of the
 sample density can also be explained by the sampling process of the sensor.
 
 In Figure \ref{fig:local_PCA_neighbor_zoom}, we reduce the radius to 10cm and the number of neighbours to 6. In this setting, $k-nn$ is less
@@ -122,7 +128,7 @@ Figure \ref{fig:descriptors} highlighs how these descriptors do indeed describe 
 
 \begin{figure}[ht]
   \centering
-  \includegraphics[width=0.46\linewidth]{figures/verticality.png}
+  \includegraphics[width=0.8\linewidth]{figures/verticality.png}
   \caption{"verticality" descriptor computed for a radius of 20cm. Dark shades indicate a verticality of 0 and white shades a verticality of 1.
   The descriptor accurately indicates surfaces orthogonal to the vertical axis.} 
   \label{fig:verticality}
@@ -130,7 +136,7 @@ Figure \ref{fig:descriptors} highlighs how these descriptors do indeed describe 
 
 \begin{figure}[ht]
   \centering
-  \includegraphics[width=0.46\linewidth]{figures/lin_plan_sphe.png.png}
+  \includegraphics[width=0.8\linewidth]{figures/lin_plan_sphe.png}
   \caption{Local image descriptors computed for a radius of 20cm. The linearity (represented in red) accurately describes elongated objects such as poles.
   The planarity (in green) accurately represents flat areas. The sphericity (in blue) represents corners, textures and small objects such as a tiled roof, the base of pole and car mirrors.
   Note that the 3 descriptors never overlap, by design.} 

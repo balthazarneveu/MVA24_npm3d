@@ -80,19 +80,21 @@ def compute_local_PCA(query_points: np.ndarray, cloud_points: np.ndarray, radius
     return all_eigenvalues, all_eigenvectors
 
 
-def compute_features(query_points, cloud_points, radius):
+def compute_features(query_points: np.ndarray, cloud_points: np.ndarray, radius: float) -> Tuple[
+        np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Create a feature vector for each point in query_points
+    """
     all_eigenvalues, all_eigenvectors = compute_local_PCA(
         query_points,
         cloud_points,
         radius)
     eps = 1e-8
-    
+
     n = all_eigenvectors[:, :, 0]
     l3 = all_eigenvalues[..., 0]
     l2 = all_eigenvalues[..., 1]
     l1 = all_eigenvalues[..., 2]
-    
-    
+
     verticality = 2 * np.arcsin(np.abs(n[..., 2])) / np.pi
     linearity = 1 - l2 / (l1 + eps)
     planarity = (l2 - l3) / (l1 + eps)
@@ -169,9 +171,9 @@ if __name__ == '__main__':
         # Compute PCA on the whole cloud - k=30
         verticality, linearity, planarity, sphericity =\
             compute_features(cloud, cloud, radius=0.2)
-        
+
         # Save cloud with normals
-        write_ply(str(out_dir/f"Lille_street_small_normals_descriptors.ply"),
+        write_ply(str(out_dir/"Lille_street_small_normals_descriptors.ply"),
                   (cloud, verticality, linearity,
                    planarity, sphericity),
                   ['x', 'y', 'z',
