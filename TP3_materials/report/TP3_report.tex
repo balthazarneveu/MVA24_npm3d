@@ -36,11 +36,11 @@
 \end{figure}
 If the neighborhood radius is too large, the observed geometry is no longer local and the normals are therefore oversmoothed.
 Figure \ref{fig:cc_normals} highlights this phenomenon: the normals of the car and of the stop sign pole cannot be recovered accurately when the radius is too large.
-If the neighborhood radius is too small, the estimated normal are inaccurate because of the noise, but also because of the local variance separating samples.
+If the neighborhood radius is too small, the estimated normals are inaccurate because of the noise, but also because of the local variance separating samples.
 Independantly of the measurement noise, samples are indeed scattered randomly and separated by a certain distance; estimations based on a narrow neighborhood can therefore
 be prone to aliasing, which can appear as structured artefacts in the normal estimations. As highlighted by Robert Cook's "Stochastic Sampling in Computer Graphics 
 ", aliasing in such a stochastic sampling setting can also translate as a white noise in the normal estimation. This is visible in Fig \ref{fig:cc_normals} where both structured pattern
-and noise appear in the normal where the radius is too short.
+and noise appear in the normals where the radius is too short to dealias fast local variations (textures such as the tiled roof or the cars are good examples).
 
 % If the neighborhood radius is too small, we get noisy normals.
 % If the neighborhood radius is too large, we get smoothed normals (makes edges curvy).
