@@ -45,8 +45,18 @@ def compute_hoppe(points,
     y = np.arange(grid_resolution) * size_voxel[1] + min_grid[1]
     z = np.arange(grid_resolution) * size_voxel[2] + min_grid[2]
     
-    x = x.repeat((1, grid_resolution, grid_resolution))
-                                                     
+    x = x[:, None, None]
+    x = np.repeat(x, repeats=grid_resolution, axis=1)
+    x = np.repeat(x, repeats=grid_resolution, axis=2)
+    
+    y = y[None, :, None]
+    y = np.repeat(y, repeats=grid_resolution, axis=0)
+    y = np.repeat(y, repeats=grid_resolution, axis=2)
+    
+    z = z[None, None, :]
+    z = np.repeat(z, repeats=grid_resolution, axis=0)
+    z = np.repeat(z, repeats=grid_resolution, axis=1)
+    
     xyz = np.stack((x, y, z), axis=-1).reshape(-1, 3)
     
     cloud_id = tree.query(xyz, k=1, return_distance=False)[:, 0]
