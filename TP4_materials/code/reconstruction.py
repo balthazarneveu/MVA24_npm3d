@@ -27,11 +27,36 @@ from skimage import measure
 
 import trimesh
 
+from tqdm import tqdm
 
 # Hoppe surface reconstruction
-def compute_hoppe(points,normals,scalar_field,grid_resolution,min_grid,size_voxel):
-    # YOUR CODE    
-    return
+def compute_hoppe(points,
+                  normals,
+                  scalar_field,
+                  grid_resolution,
+                  min_grid,
+                  size_voxel):
+    
+    tree = KDTree(points,
+                  leaf_size=40)
+    
+    ## Create a voxel grid
+    x = np.arange(grid_resolution) * size_voxel[0] + min_grid[0]
+    y = np.arange(grid_resolution) * size_voxel[1] + min_grid[1]
+    z = np.arange(grid_resolution) * size_voxel[2] + min_grid[2]
+    
+    x = x.repeat((1, grid_resolution, grid_resolution))
+                                                     
+    xyz = np.stack((x, y, z), axis=-1).reshape(-1, 3)
+    
+    cloud_id = tree.query(xyz, k=1, return_distance=False)[:, 0]
+    dist = xyz - points[cloud_id, :]
+    n = normals[cloud_id, :]
+    
+    f = np.sum(n*dist, axis=-1) # batched dot product
+    
+    out = f.reshape(grid_resolution, grid_resolution, grid_resolution)
+    return out
     
 
 # IMLS surface reconstruction
@@ -66,16 +91,23 @@ if __name__ == '__main__':
 	# grid_resolution is the number of voxels in the grid in x, y, z axis
     grid_resolution = 16 #128
     size_voxel = max([(max_grid[0]-min_grid[0])/(grid_resolution-1),(max_grid[1]-min_grid[1])/(grid_resolution-1),(max_grid[2]-min_grid[2])/(grid_resolution-1)])
-	
+    size_voxel = (size_voxel, ) * 3
+    
 	# Create a volume grid to compute the scalar field for surface reconstruction
     scalar_field = np.zeros((grid_resolution,grid_resolution,grid_resolution),dtype = np.float32)
 
 	# Compute the scalar field in the grid
-    compute_hoppe(points,normals,scalar_field,grid_resolution,min_grid,size_voxel)
+    scalar_field = compute_hoppe(points,normals,scalar_field,grid_resolution,min_grid,size_voxel)
     #compute_imls(points,normals,scalar_field,grid_resolution,min_grid,size_voxel,30)
 
 	# Compute the mesh from the scalar field based on marching cubes algorithm
-    verts, faces, normals_tri, values_tri = measure.marching_cubes(scalar_field, level=0.0, spacing=(size_voxel[0],size_voxel[1],size_voxel[2]))
+    verts, faces, normals_tri, values_tri =\
+        measure.marching_cubes(scalar_field,
+                               level=0.0,
+                               spacing=(size_voxel[0],
+                                        size_voxel[1],
+                                        size_voxel[2])
+                               )
     verts += min_grid
 	
     # Export the mesh in ply using trimesh lib
