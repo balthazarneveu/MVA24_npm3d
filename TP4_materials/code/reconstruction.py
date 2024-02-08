@@ -99,7 +99,7 @@ if __name__ == '__main__':
     max_grid = max_grid + 0.10*(max_grid-min_grid)
 
 	# grid_resolution is the number of voxels in the grid in x, y, z axis
-    grid_resolution = 16 #128
+    grid_resolution = 128
     size_voxel = max([(max_grid[0]-min_grid[0])/(grid_resolution-1),(max_grid[1]-min_grid[1])/(grid_resolution-1),(max_grid[2]-min_grid[2])/(grid_resolution-1)])
     size_voxel = (size_voxel, ) * 3
     

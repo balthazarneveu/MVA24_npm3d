@@ -24,6 +24,12 @@
 
 \section*{Question 1}
 
+\section*{Question 3}
+Hope generates 82 168 triangles, and the quality of
+reconstruction is quite poor compared to Poisson. Our implementation takes
+2 minutes to run because it is not multithreaded, but it should realistically
+be much faster than Poisson since a single thread is only tasked to perform
+a neighborhood query and a dot product. Poisson has 376 800 triangles
 
 
 \end{document}
