@@ -23,15 +23,90 @@
 
 
 \section*{Question 1}
+The octree depth is the parameter that has the most impact on the result, but also on the
+computation time. Bigger values lead to a deeper tree and more scale for the SPR solving.
+It can also increase drastically the number of voxels present on the finest scale, which can
+lead the linear system solving to become non-tractable.
+
+If the number of scale is too low (we show the result for n=6), the voxel grid is too
+coarse to represent the geometry and we can therefore notice blocky artifacts.
+If the number of scale is too high (n=10) then the grid may become too fine for the sample
+density. The implicit discretization of integrals done in the Galerkine solver no longer
+holds, as they are too few samples within each voxel. This results in high frequency artefacts.
+
+We can also tweak the number of samples per node to ensure that each nodes has enough samples.
+The built-in plugin claims that higher valus suchs as 15 are preferable for noisy clouds.
+This is indeed plausible, as the low frequency Bezier kernel used in the solver will integrate
+many samples withing a single voxel to attenuate noise.
+For clouds without noise, using such high values will prevent the voxel hierarchy to
+populate the finest level, therefore resulting in some local blocky artefacts.
+Additional artefacts can be visible around structures featuring very high frequencies,
+because the leaf voxels are too coarse for the local geometry.
+
+The regularisation weight (dubbed "point weight" in cloud compare) drive the screening
+impoprtance of the SPR. Lower values give smooth surface, whereas very high values will
+"overfit" the cloud and the noise. 
+
+
+The given point cloud has very little noise, and the bunny is a very smooth closed structure.
+With a maximum tree depth of 8, a maximum sample-per-node value of 1.5 and a point wight value
+of 2, we were able to obtain the most satisfactory reconstruction. In our case a satisfactory
+reconstruction is a mesh that preserves the global smoothness os the bunny, without losing
+the few sharper details and without display grid artefacts or spiky artefacts.
+
+The resulting mesh is composed 373 800 triangles.
+
+\section*{Question 2}
 
 \section*{Question 3}
-Hope generates 82 168 triangles, and the quality of
-reconstruction is quite poor compared to Poisson. Our implementation takes
-2 minutes to run because it is not multithreaded, but it should realistically
-be much faster than Poisson since a single thread is only tasked to perform
-a neighborhood query and a dot product. Poisson has 376 800 triangles
+We compare our handcrafted Hoppe implementation with the SPR plugin of CloudCompare.
+Qualitative results can be seen on figure # TODO, and the quantitative results can 
+are reported in table \ref{table:HoppeTable}. Our implementation takes 22 seconds to run
+on the bunny cloud, which is mostly due to the single threaded kd-tree implementation we use.
+If we neglect the interaction with the tree and do the processing a GPU,
+our reconstruction takes around 17ms. A better optimisation could realistically lower this
+overhead to a few milliseconds.
+SPR takes between 1 and 2 seconds to compute a surface.
+
+\begin{table}
+    \centering
+    \begin{tabular}{|c|c|c|}
+      \hline
+         & SPR & Hoppe \\
+      \hline
+      Computation time & ~ 1s & ~10ms \\
+      Number of triangles & 32 168 & 373 800 \\
+      Quality of reconstruction & High & Poor \\
+      \hline
+    \end{tabular}
+    \caption{Comparison between our Hoppe implementation and SPR}
+    \label{tab:HoppeTable}
+  \end{table}
 
 \section*{Question 4}
-77164 triangles.
+We run the same comparison as before with our handcrafted implementation of IMLS,
+and compare the result on figure # TODO and in table \ref{table:IMLS}. We use
+the same strategy as before to approximate the execution time. The result is
+smoother and more satisfactory that with Hoppes, at the cost of a few
+more operations. We can observe that IMLS is able to recover smooth structures such
+as the ears of the bunny accurately, contrary to Hoppes. However, only SPR can recover small details
+such as the nose.
+
+\begin{table}
+    \centering
+    \begin{tabular}{|c|c|c|c|}
+      \hline
+         & SPR & Hoppe & IMLS\\
+      \hline
+      Computation time & ~ 1s & ~ 10ms & ~ 100ms\\
+      Number of triangles & 373 800 & 32 168 & 77 164\\
+      Quality of reconstruction & High & Poor & Medium\\
+      \hline
+    \end{tabular}
+    \caption{Comparison between our implementation of Hoppes, IMLS and SPR}
+    \label{tab:IMLSTable}
+  \end{table}
+
+
 \end{document}
 
