@@ -24,7 +24,7 @@
 
 \section*{Question 1}
 The octree depth is the parameter that has the most impact on the result, but also on the
-computation time. We highlight this impact on figure \ref{fig:SPR-octree}.
+computation time. We highlight this impact on figure \ref{fig:SPR_octree}.
 Bigger values lead to a deeper tree and more scale for the SPR solving.
 It can also increase drastically the number of voxels present on the finest scale, which can
 lead the linear system solving to become non-tractable.
@@ -87,7 +87,7 @@ The resulting mesh is composed 373 800 triangles.
 \section*{Questions 2-3}
 We compare our handcrafted Hoppe implementation with the SPR plugin of CloudCompare.
 Qualitative results can be seen on figure \ref{fig:hoppe_vs_spr}, and the quantitative results can 
-are reported in table \ref{table:HoppeTable}. Our implementation takes 22 seconds to run
+are reported in table \ref{tab:HoppeTable}. Our implementation takes 22 seconds to run
 on the bunny cloud, which is mostly due to the single threaded kd-tree implementation we use.
 If we neglect the interaction with the tree and do the processing on a GPU,
 our reconstruction takes around 17ms. A better optimisation could realistically lower this
@@ -119,7 +119,7 @@ SPR takes between 1 and 2 seconds to compute a surface.
 
 \section*{Question 4}
 We run the same comparison as before with our handcrafted implementation of IMLS,
-and compare the result on figure \ref{fig:hoppe_vs_imls_vs_spr} and in table \ref{table:IMLS}. We use
+and compare the result on figure \ref{fig:hoppe_vs_imls_vs_spr} and in table \ref{tab:IMLSTable}. We use
 the same strategy as before to approximate the execution time. The result is
 smoother and more satisfactory that with Hoppe, at the cost of a few
 more operations. We can observe that IMLS is able to recover smooth structures such
