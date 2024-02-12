@@ -24,73 +24,70 @@
 
 \section*{Question 1}
 The octree depth is the parameter that has the most impact on the result, but also on the
-computation time. We highlight this impact on figure \ref{fig:SPR_octree}.
+computation time. We highlight this impact in figure \ref{fig:SPR_octree}.
 Bigger values lead to a deeper tree and more scale for the SPR solving.
 It can also increase drastically the number of voxels present on the finest scale, which can
 lead the linear system solving to become non-tractable.
-If the number of scale is too low (we show the result for n=6), the voxel grid is too
+If the number of scales is too low (we show the result for $n=6$), the voxel grid is too
 coarse to represent the geometry and we can therefore notice blocky artifacts.
-If the number of scale is too high (n=10) then the grid may become too fine for the sample
-density. The implicit discretization of integrals done in the Galerkine solver no longer
-holds, as they are too few samples within each voxel. This results in high frequency artefacts.
-
+If the number of scales is too high ($n=10$), then the grid may become too fine for the sample
+density. The implicit discretization of integrals done in the Galerkin solver no longer
+holds, as there are too few samples within each voxel. This results in high-frequency artifacts.
 
 \begin{figure}[ht]
-  \centering
-  \includegraphics[width=0.3\linewidth]{figures/n=06.png}
-  \includegraphics[width=0.3\linewidth]{figures/n=08 .png}
-  \includegraphics[width=0.3\linewidth]{figures/n=10.png}
-  \caption{From left to right: screend poisson reconstruction with 6, 8 and 10 scales.}
-  \label{fig:SPR_octree}
+    \centering
+    \includegraphics[width=0.3\linewidth]{figures/n=06.png}
+    \includegraphics[width=0.3\linewidth]{figures/n=08 .png}
+    \includegraphics[width=0.3\linewidth]{figures/n=10.png}
+    \caption{From left to right: screened Poisson reconstruction with 6, 8, and 10 scales.}
+    \label{fig:SPR_octree}
 \end{figure}
 
-We can also tweak the number of samples per node to ensure that each nodes has enough samples.
-The built-in plugin claims that higher valus suchs as 15 are preferable for noisy clouds.
-This is indeed plausible, as the low frequency Bezier kernel used in the solver will integrate
-many samples withing a single voxel to attenuate noise.
-For clouds without noise, using such high values will prevent the voxel hierarchy to
-populate the finest level, therefore resulting in some local blocky artefacts.
-Additional artefacts can be visible around structures featuring very high frequencies,
-because the leaf voxels are too coarse for the local geometry. This can be seen on figure \ref{fig:SPR_spn}.
+We can also tweak the number of samples per node to ensure that each node has enough samples.
+The built-in plugin claims that higher values such as 15 are preferable for noisy clouds.
+This is indeed plausible, as the low-frequency Bezier kernel used in the solver will integrate
+many samples within a single voxel to attenuate noise.
+For clouds without noise, using such high values will prevent the voxel hierarchy from
+populating the finest level, therefore resulting in some local blocky artifacts.
+Additional artifacts can be visible around structures featuring very high frequencies,
+because the leaf voxels are too coarse for the local geometry. This can be seen in figure \ref{fig:SPR_spn}.
 
 \begin{figure}[ht]
-  \centering
-  \includegraphics[width=0.3\linewidth]{figures/n=08 .png}
-  \includegraphics[width=0.3\linewidth]{figures/n=08_15_spn.png}
-  \caption{From left to right: screend poisson reconstruction on 8 scales, for 1.5 and 15 maximum samples per node.}
-  \label{fig:SPR_spn}
+    \centering
+    \includegraphics[width=0.3\linewidth]{figures/n=08 .png}
+    \includegraphics[width=0.3\linewidth]{figures/n=08_15_spn.png}
+    \caption{From left to right: screened Poisson reconstruction on 8 scales, for 1.5 and 15 maximum samples per node.}
+    \label{fig:SPR_spn}
 \end{figure}
 
-
-The regularisation weight (dubbed "point weight" in cloud compare) drive the screening
-impoprtance of the SPR. Lower values give smooth surface, whereas very high values will
-"overfit" the cloud and the noise. We compare different values on figure \ref{fig:SPR_pw}
-
+The regularization weight (dubbed "point weight" in CloudCompare) drives the screening
+importance of the SPR. Lower values give a smooth surface, whereas very high values will
+"overfit" the cloud and the noise. We compare different values in figure \ref{fig:SPR_pw}.
 \begin{figure}[ht]
-  \centering
-  \includegraphics[width=0.3\linewidth]{figures/n=08_00_pw.png}
-  \includegraphics[width=0.3\linewidth]{figures/n=08_2_pw.png}
-    \includegraphics[width=0.3\linewidth]{figures/n=08_20_pw.png}
-  \caption{From left to right: screend poisson reconstruction on 8 scales, for a pointweight of 0, 2 and 20.}
-  \label{fig:SPR_pw}
+    \centering
+    \includegraphics[width=0.3\linewidth]{figures/n=08_00_pw.png}
+    \includegraphics[width=0.3\linewidth]{figures/n=08_2_pw.png}
+        \includegraphics[width=0.3\linewidth]{figures/n=08_20_pw.png}
+    \caption{From left to right: screened Poisson reconstruction on 8 scales, for a point weight of 0, 2, and 20.}
+    \label{fig:SPR_pw}
 \end{figure}
 
 
 The given point cloud has very little noise, and the bunny is a very smooth closed structure.
-With a maximum tree depth of 8, a maximum sample-per-node value of 1.5 and a point wight value
-of 2, we were able to obtain the most satisfactory reconstruction. In our case a satisfactory
+With a maximum tree depth of 8, a maximum sample-per-node value of 1.5, and a point weight value
+of 2, we were able to obtain the most satisfactory reconstruction. In our case, a satisfactory
 reconstruction is a mesh that preserves the global smoothness of the bunny, without losing
-the few sharper details and without display grid artefacts or spiky artefacts.
+the few sharper details and without displaying grid artifacts or spiky artifacts.
 
-The resulting mesh is composed 373 800 triangles.
+The resulting mesh is composed of 373,800 triangles.
 
 \section*{Questions 2-3}
 We compare our handcrafted Hoppe implementation with the SPR plugin of CloudCompare.
-Qualitative results can be seen on figure \ref{fig:hoppe_vs_spr}, and the quantitative results can 
-are reported in table \ref{tab:HoppeTable}. Our implementation takes 22 seconds to run
-on the bunny cloud, which is mostly due to the single threaded kd-tree implementation we use.
+Qualitative results can be seen in figure \ref{fig:hoppe_vs_spr}, and the quantitative results are 
+reported in table \ref{tab:HoppeTable}. Our implementation takes 22 seconds to run
+on the bunny cloud, which is mostly due to the single-threaded kd-tree implementation we use.
 If we neglect the interaction with the tree and do the processing on a GPU,
-our reconstruction takes around 17ms. A better optimisation could realistically lower this
+our reconstruction takes around 17ms. A better optimization could realistically lower this
 overhead to a few milliseconds.
 SPR takes between 1 and 2 seconds to compute a surface.
 
@@ -119,9 +116,9 @@ SPR takes between 1 and 2 seconds to compute a surface.
 
 \section*{Question 4}
 We run the same comparison as before with our handcrafted implementation of IMLS,
-and compare the result on figure \ref{fig:hoppe_vs_imls_vs_spr} and in table \ref{tab:IMLSTable}. We use
+and compare the result in figure \ref{fig:hoppe_vs_imls_vs_spr} and table \ref{tab:IMLSTable}. We use
 the same strategy as before to approximate the execution time. The result is
-smoother and more satisfactory that with Hoppe, at the cost of a few
+smoother and more satisfactory than with Hoppe, at the cost of a few
 more operations. We can observe that IMLS is able to recover smooth structures such
 as the ears of the bunny accurately, contrary to Hoppe. However, only SPR can recover small details
 such as the nose.
