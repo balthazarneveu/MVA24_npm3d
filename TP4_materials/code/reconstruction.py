@@ -146,7 +146,13 @@ def compute_imls(
         dist = xyz_batch - knn_points
         kernel = (-dist.norm(dim=-1).square()*inv_h_square).exp()
         dot_product = (knn_normals*dist).sum(dim=-1)
-        sdf = (dot_product*kernel).sum(dim=-1)/(kernel.sum(dim=-1))
+        den = kernel.sum(dim=-1)
+        sdf = (dot_product*kernel).sum(dim=-1)/den
+        
+        # If no sample are close to the query point, den will be small.
+        # The sdf must take a value of +Inf there
+        sdf[den <= 1e-3] = float("inf")
+        
         sdf_list[idx] = sdf
         
     sdf = torch.cat(sdf_list, dim=0)
@@ -204,8 +210,6 @@ if __name__ == '__main__':
     method = "imls"
     scalar_field = compute_imls(points, normals, grid_resolution, min_grid, size_voxel,
                                 30, batch_size=1_000 * 4_096)
-    # scalar_field = compute_imls(points, normals, grid_resolution, min_grid, size_voxel,
-    #                             30, batch_size=1_000 * 4_096)
 
     # Compute the mesh from the scalar field based on marching cubes algorithm
     verts, faces, normals_tri, values_tri =\
