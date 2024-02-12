@@ -86,10 +86,13 @@ We compare our handcrafted Hoppe implementation with the SPR plugin of CloudComp
 Qualitative results can be seen in figure \ref{fig:hoppe_vs_spr}, and the quantitative results are 
 reported in table \ref{tab:HoppeTable}. Our implementation takes 22 seconds to run
 on the bunny cloud, which is mostly due to the single-threaded kd-tree implementation we use.
-If we neglect the interaction with the tree and do the processing on a GPU,
+If we neglect the bottleneck interaction with the tree and do the processing on a GPU,
 our reconstruction takes around 17ms. A better optimization could realistically lower this
 overhead to a few milliseconds.
-SPR takes between 1 and 2 seconds to compute a surface.
+SPR takes between 1 and 2 seconds to compute a surface in CloudCompare
+ which is compiled code (usually leading to better performances than interpreted code like python.).
+% @QUESTION! We should probably mention that we used pytorch 
+% GPU implentations gets hihgly efficient parallelization nearlyfor free. 
 
 \begin{figure}[ht]
   \centering
@@ -123,6 +126,10 @@ more operations. We can observe that IMLS is able to recover smooth structures s
 as the ears of the bunny accurately, contrary to Hoppe. However, only SPR can recover small details
 such as the nose.
 
+% @QUESTION!
+% Where do the lonely surfaces come from? (the ones that are not connected to the main mesh)
+% How do kernels affect the SDF when we're far away from the surface? ... this should be fairly easy but there may
+% be some interesting things to say about it and an issue with scale!
 \begin{figure}[ht]
   \centering
   \includegraphics[width=0.3\linewidth]{figures/SPR.png}
