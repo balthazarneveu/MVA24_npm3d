@@ -72,52 +72,32 @@ def compute_plane(points: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
 
 
 def in_plane(points: torch.Tensor, pt_plane: torch.Tensor, normal_plane: torch.Tensor, threshold_in: float = 0.1) -> torch.Tensor:
-    # (N, 3), (1, 3)
+    """
+    Compute where the distance between the points and the plane under a certain threshold
+    """
     with torch.no_grad():
         if len(pt_plane.shape) == 2:
             diff = (points - pt_plane)
             dist_to_plane = torch.abs(torch.matmul(diff, normal_plane.transpose(-1, -2)))
         else:
-            # (x-x0).T * n = x.T * n - x0.T * n 
-            # -> (N, 3) * (3, B) = (B, N, 1)
-            # -> (B, 1, 3) * (3))
             n_t = normal_plane.transpose(-1, -2)
-            # print(n_t.shape)
-            # x_n_bis = torch.matmul(n_t.squeeze(-1), points.transpose(-1, -2))
-            x_n = torch.matmul(points, n_t)
-            # print(x_n_bis.shape, x_n.shape)
-            # print(torch.abs(x_n_bis.cpu()-x_n.cpu()).sum())
+            x_n = torch.matmul(points, n_t).squeeze(-1)
             x0_n = torch.matmul(pt_plane, n_t).squeeze(-1)
-            print(x0_n.shape, x_n.shape)
             dist_to_plane = torch.abs(x_n-x0_n)
         indexes = dist_to_plane < threshold_in
     return indexes
 
 
 def RANSAC(points, nb_draws=100, threshold_in=0.1):
-
-    best_vote = 3
-    # best_pt_plane = np.zeros((3, 1))
-    # best_normal_plane = np.zeros((3, 1))
-
-    # TODO:
     selection_index = torch.randint(0, len(points), (nb_draws, 3), device=device)
     selection = points[selection_index]
-    print(selection.device)
     point_planes, normal_planes = compute_plane(selection)
     in_planes = in_plane(points, point_planes, normal_planes, threshold_in)
-    print(in_planes.shape)
     total_votes = in_planes.squeeze(-1).sum(dim=-1)
-    print(total_votes.shape)
-    print(total_votes)
     best_index = np.argmax(total_votes.cpu().numpy())
     best_vote = int(total_votes[best_index])
-    print(best_index, best_vote)
-    # best_index, total_vote = torch.argmax(total_votes.unsqueeze(-1))
-    # print(point_plane.device, normal_plane.shape)
     point_plane = point_planes[best_index]
     normal_plane = normal_planes[best_index]
-    print(point_plane.shape, normal_plane.shape)
     return point_plane, normal_plane, best_vote
 
 
