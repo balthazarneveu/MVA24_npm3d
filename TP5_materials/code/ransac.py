@@ -56,39 +56,69 @@ def compute_plane(points: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         - the point on the plane.
         - the normal vector to the plane.
     """
-    point_plane = np.zeros((3, 1))
-    normal_plane = np.zeros((3, 1))
-    p0p1 = points[..., 1, :] - points[..., 0, :]
-    p0p2 = points[..., 2, :] - points[..., 0, :]
-    normal_plane = torch.cross(p0p1, p0p2).unsqueeze(-2)
-    normal_plane = normal_plane / torch.norm(normal_plane, dim=-1, keepdim=True)
-    point_plane = points[..., 0, :].unsqueeze(-2)
-    # normal_plane = normal_plane.transpose(-1, -2)
-    # point_plane = point_plane.transpose(-1, -2)
-    # assert normal_plane.shape == (3, 1), normal_plane.shape
-    # assert point_plane.shape == (3, 1), point_plane.shape
+    with torch.no_grad():
+        p0p1 = points[..., 1, :] - points[..., 0, :]
+        p0p2 = points[..., 2, :] - points[..., 0, :]
+        normal_plane = torch.cross(p0p1, p0p2).unsqueeze(-2)
+        normal_plane_norm = torch.norm(normal_plane, dim=-1, keepdim=True)
+        assert (normal_plane_norm != 0.).all()
+        normal_plane = normal_plane / normal_plane_norm
+        point_plane = points[..., 0, :].unsqueeze(-2)
+        # normal_plane = normal_plane.transpose(-1, -2)
+        # point_plane = point_plane.transpose(-1, -2)
+        # assert normal_plane.shape == (3, 1), normal_plane.shape
+        # assert point_plane.shape == (3, 1), point_plane.shape
     return point_plane, normal_plane
 
 
 def in_plane(points: torch.Tensor, pt_plane: torch.Tensor, normal_plane: torch.Tensor, threshold_in: float = 0.1) -> torch.Tensor:
     # (N, 3), (1, 3)
-
-    diff = (points - pt_plane)
-    dist_to_plane = torch.abs(torch.matmul(diff, normal_plane.transpose(-1, -2)))
-    indexes = dist_to_plane < threshold_in
-
+    with torch.no_grad():
+        if len(pt_plane.shape) == 2:
+            diff = (points - pt_plane)
+            dist_to_plane = torch.abs(torch.matmul(diff, normal_plane.transpose(-1, -2)))
+        else:
+            # (x-x0).T * n = x.T * n - x0.T * n 
+            # -> (N, 3) * (3, B) = (B, N, 1)
+            # -> (B, 1, 3) * (3))
+            n_t = normal_plane.transpose(-1, -2)
+            # print(n_t.shape)
+            # x_n_bis = torch.matmul(n_t.squeeze(-1), points.transpose(-1, -2))
+            x_n = torch.matmul(points, n_t)
+            # print(x_n_bis.shape, x_n.shape)
+            # print(torch.abs(x_n_bis.cpu()-x_n.cpu()).sum())
+            x0_n = torch.matmul(pt_plane, n_t).squeeze(-1)
+            print(x0_n.shape, x_n.shape)
+            dist_to_plane = torch.abs(x_n-x0_n)
+        indexes = dist_to_plane < threshold_in
     return indexes
 
 
 def RANSAC(points, nb_draws=100, threshold_in=0.1):
 
     best_vote = 3
-    best_pt_plane = np.zeros((3, 1))
-    best_normal_plane = np.zeros((3, 1))
+    # best_pt_plane = np.zeros((3, 1))
+    # best_normal_plane = np.zeros((3, 1))
 
     # TODO:
-
-    return best_pt_plane, best_normal_plane, best_vote
+    selection_index = torch.randint(0, len(points), (nb_draws, 3), device=device)
+    selection = points[selection_index]
+    print(selection.device)
+    point_planes, normal_planes = compute_plane(selection)
+    in_planes = in_plane(points, point_planes, normal_planes, threshold_in)
+    print(in_planes.shape)
+    total_votes = in_planes.squeeze(-1).sum(dim=-1)
+    print(total_votes.shape)
+    print(total_votes)
+    best_index = np.argmax(total_votes.cpu().numpy())
+    best_vote = int(total_votes[best_index])
+    print(best_index, best_vote)
+    # best_index, total_vote = torch.argmax(total_votes.unsqueeze(-1))
+    # print(point_plane.device, normal_plane.shape)
+    point_plane = point_planes[best_index]
+    normal_plane = normal_planes[best_index]
+    print(point_plane.shape, normal_plane.shape)
+    return point_plane, normal_plane, best_vote
 
 
 def recursive_RANSAC(points, nb_draws=100, threshold_in=0.1, nb_planes=2):
@@ -103,9 +133,33 @@ def recursive_RANSAC(points, nb_draws=100, threshold_in=0.1, nb_planes=2):
     return plane_inds, remaining_inds, plane_labels
 
 
-def compute_plane_passing_through_3_points(points: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+def select_points_in_plane(points, pt_plane, normal_plane, nb_points, threshold_in=0.1):
+    points_in_plane = in_plane(points, pt_plane, normal_plane, threshold_in)
+    plane_inds = torch.where(points_in_plane)[0]
+    remaining_inds = torch.where(~points_in_plane)[0]
+    plane_inds = plane_inds.cpu()
+    remaining_inds = remaining_inds.cpu()
+    print(
+        f"plane_inds: {plane_inds.shape[0]} {plane_inds.shape[0]/nb_points:.1%}\n" +
+        f"remaining_inds: {remaining_inds.shape[0]} {remaining_inds.shape[0]/nb_points:.1%}")
+
+    return plane_inds, remaining_inds
+
+
+def run_plane_passing_through_3_points(
+    points: torch.Tensor,
+    threshold_in: float = 0.10
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Compute the plane passing through 3 random points, extract close points and remaining points
+    # >>>> QUESTION 1 and 2
+    Args:
+        points (torch.Tensor): [N, 3]
+
+    Returns:
+        Tuple[torch.Tensor, torch.Tensor]: plane_inds, remaining_inds (close to the plane, too far from the plane)
+    """
     # Define parameter
-    threshold_in = 0.10
+
     nb_points = len(points)
     # [3038661, d=3]
     # Take randomly three points
@@ -121,20 +175,37 @@ def compute_plane_passing_through_3_points(points: torch.Tensor) -> Tuple[torch.
 
     # Find points in the plane and others
     t0 = time.time()
-    points_in_plane = in_plane(points, pt_plane, normal_plane, threshold_in)
+    in_plane(points, pt_plane, normal_plane, threshold_in)
     t1 = time.time()
     print('plane extraction done in {:.3f} seconds'.format(t1 - t0))
-    # plane_inds = points_in_plane.nonzero()[0]
-    # remaining_inds = (1-points_in_plane).nonzero()[0]
-    plane_inds = torch.where(points_in_plane)[0]
-    remaining_inds = torch.where(~points_in_plane)[0]
-    plane_inds = plane_inds.cpu()
-    remaining_inds = remaining_inds.cpu()
+    plane_inds, remaining_inds = select_points_in_plane(points, pt_plane, normal_plane, nb_points, threshold_in)
     for sel in selection:
         assert sel in plane_inds
-    print(
-        f"plane_inds: {plane_inds.shape[0]} {plane_inds.shape[0]/nb_points:.1%}\n" +
-        f"remaining_inds: {remaining_inds.shape[0]} {remaining_inds.shape[0]/nb_points:.1%}")
+    return plane_inds, remaining_inds
+
+
+def run_ransac(points: torch.Tensor, nb_draws: int = 100, threshold_in: float = 0.1) -> Tuple[torch.Tensor, torch.Tensor]:
+    """
+    # >>> QUESTION 3
+
+    Args:
+        points (torch.Tensor): [N, 3]
+        nb_draws (int, optional): Ransac parameters, number of random sampled planes to test. Defaults to 100.
+        threshold_in (float, optional): Ransac parameters, distance to plane. Defaults to 0.1.
+
+    Returns:
+        Tuple[torch.Tensor, torch.Tensor]: _description_
+    """
+    nb_points = len(points)
+    # Find best plane by RANSAC
+    t0 = time.time()
+    best_pt_plane, best_normal_plane, best_vote = RANSAC(points, nb_draws, threshold_in)
+    t1 = time.time()
+    print('RANSAC done in {:.3f} seconds'.format(t1 - t0))
+
+    # Find points in the plane and others
+    plane_inds, remaining_inds = select_points_in_plane(
+        points, best_pt_plane, best_normal_plane, nb_points, threshold_in)
     return plane_inds, remaining_inds
 
 # ------------------------------------------------------------------------------------------
@@ -169,70 +240,56 @@ def main():
     labels = data['label']
     points = torch.from_numpy(points_np).to(device)
 
+    question_list = [1, 3]
     # Computes the plane passing through 3 randomly chosen points
     # ************************
     #
 
-    print('\n--- 1) and 2) ---\n')
-    plane_inds, remaining_inds = compute_plane_passing_through_3_points(points)
-    # Save extracted plane and remaining points
-    write_ply(output_path/'plane.ply', [points_np[plane_inds], colors[plane_inds], labels[plane_inds]],
-              ['x', 'y', 'z', 'red', 'green', 'blue', 'label'])
-    write_ply(output_path/'remaining_points_plane.ply', [points_np[remaining_inds], colors[remaining_inds],
-              labels[remaining_inds]], ['x', 'y', 'z', 'red', 'green', 'blue', 'label'])
-    return
+    if 1 in question_list:
+        print('\n--- 1) and 2) ---\n')
+        plane_inds, remaining_inds = run_plane_passing_through_3_points(points)
+        # Save extracted plane and remaining points
+        write_ply(output_path/'plane.ply', [points_np[plane_inds], colors[plane_inds], labels[plane_inds]],
+                  ['x', 'y', 'z', 'red', 'green', 'blue', 'label'])
+        write_ply(output_path/'remaining_points_plane.ply', [points_np[remaining_inds], colors[remaining_inds],
+                                                             labels[remaining_inds]], ['x', 'y', 'z', 'red', 'green', 'blue', 'label'])
 
     # Computes the best plane fitting the point cloud
     # ***********************************
     #
     #
-
-    print('\n--- 3) ---\n')
-
-    # Define parameters of RANSAC
-    nb_draws = 100
-    threshold_in = 0.10
-
-    # Find best plane by RANSAC
-    t0 = time.time()
-    best_pt_plane, best_normal_plane, best_vote = RANSAC(points, nb_draws, threshold_in)
-    t1 = time.time()
-    print('RANSAC done in {:.3f} seconds'.format(t1 - t0))
-
-    # Find points in the plane and others
-    points_in_plane = in_plane(points, best_pt_plane, best_normal_plane, threshold_in)
-    plane_inds = points_in_plane.nonzero()[0]
-    remaining_inds = (1-points_in_plane).nonzero()[0]
-
-    # Save the best extracted plane and remaining points
-    write_ply('../best_plane.ply', [points[plane_inds], colors[plane_inds],
-              labels[plane_inds]], ['x', 'y', 'z', 'red', 'green', 'blue', 'label'])
-    write_ply('../remaining_points_best_plane.ply', [points[remaining_inds], colors[remaining_inds],
-              labels[remaining_inds]], ['x', 'y', 'z', 'red', 'green', 'blue', 'label'])
+    if 3 in question_list:
+        print('\n--- 3) ---\n')
+        plane_inds, remaining_inds = run_ransac(points)
+        # Save the best extracted plane and remaining points
+        write_ply(output_path/'best_plane.ply', [points_np[plane_inds], colors[plane_inds],
+                                                 labels[plane_inds]], ['x', 'y', 'z', 'red', 'green', 'blue', 'label'])
+        write_ply(output_path/'remaining_points_best_plane.ply', [points_np[remaining_inds], colors[remaining_inds],
+                                                                  labels[remaining_inds]], ['x', 'y', 'z', 'red', 'green', 'blue', 'label'])
 
     # Find "all planes" in the cloud
     # ***********************************
     #
     #
+    if 4 in question_list:
+        print('\n--- 4) ---\n')
 
-    print('\n--- 4) ---\n')
+        # Define parameters of recursive_RANSAC
+        nb_draws = 100
+        threshold_in = 0.10
+        nb_planes = 2
 
-    # Define parameters of recursive_RANSAC
-    nb_draws = 100
-    threshold_in = 0.10
-    nb_planes = 2
+        # Recursively find best plane by RANSAC
+        t0 = time.time()
+        plane_inds, remaining_inds, plane_labels = recursive_RANSAC(points, nb_draws, threshold_in, nb_planes)
+        t1 = time.time()
+        print('recursive RANSAC done in {:.3f} seconds'.format(t1 - t0))
 
-    # Recursively find best plane by RANSAC
-    t0 = time.time()
-    plane_inds, remaining_inds, plane_labels = recursive_RANSAC(points, nb_draws, threshold_in, nb_planes)
-    t1 = time.time()
-    print('recursive RANSAC done in {:.3f} seconds'.format(t1 - t0))
-
-    # Save the best planes and remaining points
-    write_ply('../best_planes.ply', [points[plane_inds], colors[plane_inds], labels[plane_inds],
-              plane_labels.astype(np.int32)], ['x', 'y', 'z', 'red', 'green', 'blue', 'label', 'plane_label'])
-    write_ply('../remaining_points_best_planes.ply',
-              [points[remaining_inds], colors[remaining_inds], labels[remaining_inds]], ['x', 'y', 'z', 'red', 'green', 'blue', 'label'])
+        # Save the best planes and remaining points
+        write_ply(output_path/'best_planes.ply', [points[plane_inds], colors[plane_inds], labels[plane_inds],
+                                                  plane_labels.astype(np.int32)], ['x', 'y', 'z', 'red', 'green', 'blue', 'label', 'plane_label'])
+        write_ply(output_path/'remaining_points_best_planes.ply',
+                  [points[remaining_inds], colors[remaining_inds], labels[remaining_inds]], ['x', 'y', 'z', 'red', 'green', 'blue', 'label'])
 
     print('Done')
 
