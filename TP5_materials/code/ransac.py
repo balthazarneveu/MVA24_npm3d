@@ -80,6 +80,13 @@ def in_plane(points: torch.Tensor, pt_plane: torch.Tensor, normal_plane: torch.T
             diff = (points - pt_plane)
             dist_to_plane = torch.abs(torch.matmul(diff, normal_plane.transpose(-1, -2)))
         else:
+            # Do this computation in 2 steps to limit memory footprint
+            # When naively computing the differences between points and pt_plane
+            # The matrix mulitplication with the normal vector gets too big
+            # n^T.(x-x0) = n^T*x - n^T*x0... as simple as that.
+            # x0 -> [B, 3], x -> [N, 3]
+            # (x-x0) -> [B, N, 3] - this is a large matrix for multiplication...
+            # Better broadcast afteward
             n_t = normal_plane.transpose(-1, -2)
             x_n = torch.matmul(points, n_t).squeeze(-1)
             x0_n = torch.matmul(pt_plane, n_t).squeeze(-1)
@@ -88,7 +95,25 @@ def in_plane(points: torch.Tensor, pt_plane: torch.Tensor, normal_plane: torch.T
     return indexes
 
 
-def RANSAC(points, nb_draws=100, threshold_in=0.1):
+def RANSAC(
+    points: torch.Tensor,
+    nb_draws: int = 100,
+    threshold_in: int = 0.1
+) -> Tuple[torch.Tensor, torch.Tensor, int]:
+    """
+    Performs the RANSAC algorithm to estimate the best plane model from a set of 3D points.
+
+    Args:
+        points (torch.Tensor): [N, 3] input 3D points.
+        nb_draws (int): RANSAC parameter - number of random draws to perform.
+        threshold_in (int): RANSAC parameter - inlier threshold distance.
+
+    Returns:
+        Tuple[torch.Tensor, torch.Tensor, int]: A tuple containing 
+        - estimated point on the plane,
+        - estimated normal of the plane
+        - number of inliers.
+    """
     selection_index = torch.randint(0, len(points), (nb_draws, 3), device=device)
     selection = points[selection_index]
     point_planes, normal_planes = compute_plane(selection)
