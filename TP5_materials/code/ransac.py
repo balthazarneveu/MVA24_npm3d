@@ -31,6 +31,8 @@ from ply import write_ply, read_ply
 # Import time package
 import time
 
+from tqdm import tqdm
+
 
 
 #------------------------------------------------------------------------------------------
@@ -44,21 +46,39 @@ import time
 
 
 def compute_plane(points):
+    ### compute the plance defined by the three first points given
     
-    point_plane = np.zeros((3,1))
-    normal_plane = np.zeros((3,1))
+    ## compute the normal as cross product
+    point_plane = points[0, None]
     
-    # TODO:
+    # Extract the three points from the matrix
+    p0 = points[0, :]
+    p1 = points[1, :]
+    p2 = points[2, :]
     
+    # Compute vectors p0p1 and p0p2
+    v0 = p1 - p0
+    v1 = p2 - p0
+    
+    # Compute the normal vector using the cross product
+    normal_plane = np.cross(v0, v1)[:, None]
+    
+    # Normalize the normal vector
+    normal_plane /= np.linalg.norm(normal_plane)
     return point_plane, normal_plane
 
 
 
 def in_plane(points, pt_plane, normal_plane, threshold_in=0.1):
-    
+    N_points, _ = points.shape
     indexes = np.zeros(len(points), dtype=bool)
     
     # TODO:
+    dif = points - pt_plane
+    dot = np.sum(dif * normal_plane.T, axis=-1)
+    distance = np.abs(dot)
+    
+    indexes = (distance <= threshold_in).astype(int)
         
     return indexes
 
@@ -66,24 +86,57 @@ def in_plane(points, pt_plane, normal_plane, threshold_in=0.1):
 
 def RANSAC(points, nb_draws=100, threshold_in=0.1):
     
-    best_vote = 3
+    best_vote = -1
     best_pt_plane = np.zeros((3,1))
     best_normal_plane = np.zeros((3,1))
+    n_points = points.shape[0]
     
     # TODO:
+    for draw_id in tqdm(range(nb_draws)):
+        ## Fetch 3 points
+        random_indices = np.random.choice(n_points, size=3, replace=False)
+        
+        ## Fecth random plane
+        point_plane, normal_plane = compute_plane(points[random_indices, :])
+        
+        ## Test plane
+        n_votes = np.sum(in_plane(points, point_plane, normal_plane, threshold_in))
+        
+        if n_votes > best_vote:
+            best_vote = n_votes
+            best_pt_plane = point_plane
+            best_normal_plane = normal_plane
                 
     return best_pt_plane, best_normal_plane, best_vote
 
 
 def recursive_RANSAC(points, nb_draws=100, threshold_in=0.1, nb_planes=2):
-    
     nb_points = len(points)
-    plane_inds = np.arange(0,0)
-    plane_labels = np.arange(0,0)
-    remaining_inds = np.arange(0,nb_points)
-	
-    # TODO:
     
+    remaining_inds = np.arange(nb_points)
+    
+    remaining_points = points
+	
+    plane_inds = []
+    plane_labels = []
+    # TODO:
+    for plane_id in range(nb_planes):
+        print(f"Fitting plane {plane_id}")
+        ## Fit with ransac
+        pt_plane, normal_plane, best_vote = RANSAC(remaining_points)
+        
+        ## Find explainable points
+        is_explainable = in_plane(remaining_points, pt_plane, normal_plane, threshold_in)
+
+        plane_inds.append(remaining_inds[is_explainable.astype(bool)])
+        plane_labels.append(plane_id * np.ones(np.sum(is_explainable)))
+        
+        ## Mask them
+        remaining_points = remaining_points[(1 - is_explainable).astype(bool)]
+        remaining_inds = remaining_inds[(1 - is_explainable).astype(bool)]
+    
+    plane_inds = np.concatenate(plane_inds)
+    plane_labels = np.concatenate(plane_labels)
     return plane_inds, remaining_inds, plane_labels
 
 
