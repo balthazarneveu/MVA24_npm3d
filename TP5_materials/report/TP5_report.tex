@@ -27,10 +27,18 @@
   \centering
   \includegraphics[width=0.9\linewidth]{figures/ransac_cloud_compare_comparison.png}
   \caption{RANSAC plane segmentation on the indoor point cloud.}
-  \label{fig:hoppe_vs_imls_vs_spr}
+  \label{fig:ransac_overview}
 \end{figure}
 
 
+
+\section*{Implementation sanity check 1-2}
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.9\linewidth]{figures/random_plane_distance_thresholding_0_01.png}
+  \caption{Plane extraction from 3 points and thresholding. Left: Points close to the extracted planes. Middle: Points at a distance from the plane larger than the threshold. Right: original point cloud. }
+  \label{fig:sanity_check_planes}
+\end{figure}
 
 \end{document}
 
