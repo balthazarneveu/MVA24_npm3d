@@ -99,7 +99,7 @@ def RANSAC(
     points: torch.Tensor,
     nb_draws: int = 100,
     threshold_in: int = 0.1
-) -> Tuple[torch.Tensor, torch.Tensor, int]:
+) -> Tuple[torch.Tensor, torch.Tensor, int, torch.Tensor]:
     """
     Performs the RANSAC algorithm to estimate the best plane model from a set of 3D points.
 
@@ -114,16 +114,20 @@ def RANSAC(
         - estimated normal of the plane
         - number of inliers.
     """
-    selection_index = torch.randint(0, len(points), (nb_draws, 3), device=device)
-    selection = points[selection_index]
-    point_planes, normal_planes = compute_plane(selection)
-    in_planes = in_plane(points, point_planes, normal_planes, threshold_in)
-    total_votes = in_planes.squeeze(-1).sum(dim=-1)
+    with torch.no_grad():
+        selection_index = torch.randint(0, len(points), (nb_draws, 3), device=device)
+        selection = points[selection_index]
+        # Compute in parallel.
+        point_planes, normal_planes = compute_plane(selection)
+        in_planes = in_plane(points, point_planes, normal_planes, threshold_in)
+        # in_planes is a mask! [B]
+        # Count the number of inliers for each plane and vote
+        total_votes = in_planes.squeeze(-1).sum(dim=-1)
     best_index = np.argmax(total_votes.cpu().numpy())
     best_vote = int(total_votes[best_index])
     point_plane = point_planes[best_index]
     normal_plane = normal_planes[best_index]
-    return point_plane, normal_plane, best_vote
+    return point_plane, normal_plane, best_vote, in_planes[best_index]
 
 
 def recursive_RANSAC(points, nb_draws=100, threshold_in=0.1, nb_planes=2):
@@ -189,7 +193,11 @@ def run_plane_passing_through_3_points(
     return plane_inds, remaining_inds
 
 
-def run_ransac(points: torch.Tensor, nb_draws: int = 100, threshold_in: float = 0.1) -> Tuple[torch.Tensor, torch.Tensor]:
+def run_ransac(
+    points: torch.Tensor,
+    nb_draws: int = 100,
+    threshold_in: float = 0.1
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     # >>> QUESTION 3
 
@@ -204,7 +212,7 @@ def run_ransac(points: torch.Tensor, nb_draws: int = 100, threshold_in: float = 
     nb_points = len(points)
     # Find best plane by RANSAC
     t0 = time.time()
-    best_pt_plane, best_normal_plane, best_vote = RANSAC(points, nb_draws, threshold_in)
+    best_pt_plane, best_normal_plane, best_vote, _ = RANSAC(points, nb_draws, threshold_in)
     t1 = time.time()
     print('RANSAC done in {:.3f} seconds'.format(t1 - t0))
 
@@ -250,7 +258,7 @@ def main():
     # ************************
     #
 
-    if 1 in question_list:
+    if 1 in question_list or 2 in question_list:
         print('\n--- 1) and 2) ---\n')
         plane_inds, remaining_inds = run_plane_passing_through_3_points(points)
         # Save extracted plane and remaining points
@@ -271,7 +279,6 @@ def main():
                                                  labels[plane_inds]], ['x', 'y', 'z', 'red', 'green', 'blue', 'label'])
         write_ply(output_path/'remaining_points_best_plane.ply', [points_np[remaining_inds], colors[remaining_inds],
                                                                   labels[remaining_inds]], ['x', 'y', 'z', 'red', 'green', 'blue', 'label'])
-
     # Find "all planes" in the cloud
     # ***********************************
     #
