@@ -130,15 +130,20 @@ def RANSAC(
     return point_plane, normal_plane, best_vote, in_planes[best_index]
 
 
-def recursive_RANSAC(points, nb_draws=100, threshold_in=0.1, nb_planes=2):
-
+def recursive_RANSAC(points, nb_draws=100, threshold_in: float = 0.1, nb_planes: int = 2):
     nb_points = len(points)
-    plane_inds = np.arange(0, 0)
-    plane_labels = np.arange(0, 0)
-    remaining_inds = np.arange(0, nb_points)
-
-    # TODO:
-
+    plane_labels = np.zeros(nb_points)
+    current_points = points.clone()
+    plane_inds, remaining_inds = torch.tensor([]), torch.tensor([])
+    for plane_idx in range(nb_planes):
+        pt_plane, normal_plane, best_vote, inlier_index = RANSAC(current_points, nb_draws, threshold_in)
+        plane_inds_, remaining_inds_ = select_points_in_plane(points, pt_plane, normal_plane, nb_points, threshold_in)
+        # print(plane_inds_.shape)
+        plane_inds = torch.cat([plane_inds, plane_inds_])
+        remaining_inds = torch.cat([remaining_inds, remaining_inds_])
+        print(remaining_inds.shape)
+        plane_labels[plane_inds] = plane_idx
+        current_points = points[remaining_inds]
     return plane_inds, remaining_inds, plane_labels
 
 
@@ -253,7 +258,7 @@ def main():
     labels = data['label']
     points = torch.from_numpy(points_np).to(device)
 
-    question_list = [1, 3]
+    question_list = [4]
     # Computes the plane passing through 3 randomly chosen points
     # ************************
     #
@@ -298,10 +303,11 @@ def main():
         print('recursive RANSAC done in {:.3f} seconds'.format(t1 - t0))
 
         # Save the best planes and remaining points
-        write_ply(output_path/'best_planes.ply', [points[plane_inds], colors[plane_inds], labels[plane_inds],
-                                                  plane_labels.astype(np.int32)], ['x', 'y', 'z', 'red', 'green', 'blue', 'label', 'plane_label'])
+        # write_ply(output_path/'best_planes.ply', [points_np[plane_inds], colors[plane_inds], labels[plane_inds],
+        #                                           plane_labels.astype(np.int32)], ['x', 'y', 'z', 'red', 'green', 'blue', 'label', 'plane_label'])
+        write_ply(output_path/'best_planes.ply', [points_np[plane_inds], colors[plane_inds], labels[plane_inds]], ['x', 'y', 'z', 'red', 'green', 'blue', 'label'])
         write_ply(output_path/'remaining_points_best_planes.ply',
-                  [points[remaining_inds], colors[remaining_inds], labels[remaining_inds]], ['x', 'y', 'z', 'red', 'green', 'blue', 'label'])
+                  [points_np[remaining_inds], colors[remaining_inds], labels[remaining_inds]], ['x', 'y', 'z', 'red', 'green', 'blue', 'label'])
 
     print('Done')
 
