@@ -36,7 +36,7 @@ from sklearn.neighbors import KDTree  # Import functions from scikit-learn
 
 from tqdm import tqdm
 
-from typing import Tuple
+from typing import Tuple, Optional
 
 # Import time package
 import time
@@ -130,8 +130,8 @@ def RANSAC(
     points: torch.Tensor,
     nb_draws: int = 100,
     threshold_in: int = 0.1,
-    normals: torch.Tensor = None,
-    threshold_angle=15,
+    normals: Optional[torch.Tensor] = None,
+    threshold_angle: float = 15,
 ) -> Tuple[torch.Tensor, torch.Tensor, int, torch.Tensor]:
     """
     Performs the RANSAC algorithm to estimate the best plane model from a set of 3D points.
@@ -140,6 +140,7 @@ def RANSAC(
         points (torch.Tensor): [N, 3] input 3D points.
         nb_draws (int): RANSAC parameter - number of random draws to perform.
         threshold_in (int): RANSAC parameter - inlier threshold distance.
+        threshold_angle (int): RANSAC parameter - inlier threshold angle of the normal with the plane.
 
     Returns:
         Tuple[torch.Tensor, torch.Tensor, int]: A tuple containing
@@ -175,19 +176,22 @@ def RANSAC(
 
 def faster_RANSAC(
         points: torch.Tensor,
-        beta=0.01,
+        beta: float = 0.01,
         threshold_in: int = 0.1,
-        normals: torch.Tensor = None,
-        threshold_angle=15,
-        B=20,
+        normals: Optional[torch.Tensor] = None,
+        threshold_angle: float = 15,
+        B: int = 20,
 ) -> Tuple[torch.Tensor, torch.Tensor, int, torch.Tensor]:
     """
-    Performs the RANSAC algorithm to estimate the best plane model from a set of 3D points.
+    Performs the RANSAC algorithm to estimate the best plane model from a set of 3D points
+    using a given probability of inliers instead of a fixed number of iterations.
 
     Args:
         points (torch.Tensor): [N, 3] input 3D points.
-        nb_draws (int): RANSAC parameter - number of random draws to perform.
+        beta (float): RANSAC parameter - probability of picking the right plane.
         threshold_in (int): RANSAC parameter - inlier threshold distance.
+        threshold_angle (int): RANSAC parameter - inlier threshold distance.
+        B (int): RANSAC parameter - number of random draws to perform.
 
     Returns:
         Tuple[torch.Tensor, torch.Tensor, int]: A tuple containing
@@ -195,12 +199,12 @@ def faster_RANSAC(
         - estimated normal of the plane
         - number of inliers.
     """
-    N_iter = 1_000_000  # init
+    N_iter = 1_000_000  # init with a large number of iterations
     best_best_vote = -1
     with torch.no_grad():
         for n in range(N_iter):
 
-            point_plane, normal_plane, best_vote, inliers = RANSAC(
+            point_plane, normal_plane, best_vote, _inliers = RANSAC(
                 points,
                 nb_draws=B,
                 threshold_in=threshold_in,
@@ -209,7 +213,7 @@ def faster_RANSAC(
             )
 
             if best_vote > best_best_vote:
-                # update N_iter
+                # update number of iterations N_iter dynamically
                 N_iter = ceil(
                     np.log(beta) / (1e-6 + np.log(1 - best_vote/points.size(0)))
                 )
@@ -232,8 +236,17 @@ def faster_RANSAC(
     return best_point_plane, best_normal_plane, best_best_vote, in_planes.squeeze(1)
 
 
-def recursive_RANSAC(points, nb_draws=100, threshold_in=0.1, nb_planes=2, normals=None, threshold_angle=15,
-                     faster_ransac_variant=False, beta=0.01, B=5):
+def recursive_RANSAC(
+    points: torch.Tensor,
+    nb_draws: int = 100,
+    threshold_in: float = 0.1,
+    nb_planes: int = 2,
+    normals: Optional[torch.Tensor] = None,
+    threshold_angle: float = 15,
+    faster_ransac_variant: bool = False,
+    beta: float = 0.01,
+    B: int = 5
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
 
     nb_points = len(points)
     device = points.device
@@ -449,7 +462,7 @@ def main():
     labels = data['label']
     points = torch.from_numpy(points_np).to(device)
 
-    question_list = [6]
+    question_list = [1, 3, 4, 5, 6]
     # Computes the plane passing through 3 randomly chosen points
     # ************************
     #
