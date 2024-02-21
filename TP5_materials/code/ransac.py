@@ -5,17 +5,17 @@
 #      0===========================================================0
 #
 #
-#------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------
 #
 #      Plane detection with RANSAC
 #
-#------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------
 #
 #      Xavier ROYNARD - 19/02/2018
 #
 
 
-#------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------
 #
 #          Imports and global variables
 #      \**********************************/
@@ -32,7 +32,7 @@ import torch
 from ply import write_ply, read_ply
 
 # Import functions from scikit-learn
-from sklearn.neighbors import KDTree# Import functions from scikit-learn
+from sklearn.neighbors import KDTree  # Import functions from scikit-learn
 
 from tqdm import tqdm
 
@@ -41,15 +41,13 @@ from typing import Tuple
 # Import time package
 import time
 
-from tqdm import tqdm
-
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 # Import time package
 HERE = Path(__file__).parent
 
 
-#------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------
 #
 #           Functions
 #       \***************/
@@ -85,7 +83,12 @@ def compute_plane(points: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     return point_plane, normal_plane
 
 
-def in_plane(points: torch.Tensor, pt_plane: torch.Tensor, normal_plane: torch.Tensor, threshold_in: float = 0.1) -> torch.Tensor:
+def in_plane(
+    points: torch.Tensor,
+    pt_plane: torch.Tensor,
+    normal_plane: torch.Tensor,
+    threshold_in: float = 0.1
+) -> torch.Tensor:
     """
     Compute where the distance between the points and the plane under a certain threshold
     """
@@ -108,26 +111,26 @@ def in_plane(points: torch.Tensor, pt_plane: torch.Tensor, normal_plane: torch.T
         indexes = dist_to_plane < threshold_in
     return indexes
 
+
 def plane_parallel(normal_planes, normals, threshold_angle=15):
     normals = normals.unsqueeze(0)
     dot_product = torch.sum(normal_planes * normals, dim=-1)
     norm1 = torch.norm(normal_planes, dim=-1)
     norm2 = torch.norm(normal_planes, dim=-1)
-    
+
     cos_theta = dot_product / (norm1 * norm2)
-    cos_theta = cos_theta * (1 - 1e-5) # To avoid nan
-    angle = torch.acos(cos_theta) * 180 / torch.pi # angle in degrees
-    
+    cos_theta = cos_theta * (1 - 1e-5)  # To avoid nan
+    angle = torch.acos(cos_theta) * 180 / torch.pi  # angle in degrees
+
     mask = torch.min(angle, 180 - angle) < threshold_angle
     return mask
-    
-    
+
 
 def RANSAC(
     points: torch.Tensor,
     nb_draws: int = 100,
     threshold_in: int = 0.1,
-    normals: torch.Tensor=None,
+    normals: torch.Tensor = None,
     threshold_angle=15,
 ) -> Tuple[torch.Tensor, torch.Tensor, int, torch.Tensor]:
     """
@@ -139,7 +142,7 @@ def RANSAC(
         threshold_in (int): RANSAC parameter - inlier threshold distance.
 
     Returns:
-        Tuple[torch.Tensor, torch.Tensor, int]: A tuple containing 
+        Tuple[torch.Tensor, torch.Tensor, int]: A tuple containing
         - estimated point on the plane,
         - estimated normal of the plane
         - number of inliers.
@@ -153,15 +156,15 @@ def RANSAC(
         else:
             selection_index = torch.randint(0, len(points), (nb_draws, 1), device=device)
             point_planes, normal_planes = points[selection_index], normals[selection_index]
-            
+
         in_planes = in_plane(points, point_planes, normal_planes, threshold_in)
         # in_planes is a mask! [B]
         # Count the number of inliers for each plane and vote
-        
+
         if normals is not None:
             planes_parallel = plane_parallel(normal_planes, normals, threshold_angle)
             in_planes = in_planes * planes_parallel
-            
+
         total_votes = in_planes.squeeze(-1).sum(dim=-1)
     best_index = np.argmax(total_votes.cpu().numpy())
     best_vote = int(total_votes[best_index])
@@ -169,14 +172,15 @@ def RANSAC(
     normal_plane = normal_planes[best_index]
     return point_plane, normal_plane, best_vote, in_planes[best_index]
 
+
 def faster_RANSAC(
         points: torch.Tensor,
         beta=0.01,
         threshold_in: int = 0.1,
-        normals: torch.Tensor=None,
+        normals: torch.Tensor = None,
         threshold_angle=15,
         B=20,
-        ) -> Tuple[torch.Tensor, torch.Tensor, int, torch.Tensor]:
+) -> Tuple[torch.Tensor, torch.Tensor, int, torch.Tensor]:
     """
     Performs the RANSAC algorithm to estimate the best plane model from a set of 3D points.
 
@@ -186,66 +190,64 @@ def faster_RANSAC(
         threshold_in (int): RANSAC parameter - inlier threshold distance.
 
     Returns:
-        Tuple[torch.Tensor, torch.Tensor, int]: A tuple containing 
+        Tuple[torch.Tensor, torch.Tensor, int]: A tuple containing
         - estimated point on the plane,
         - estimated normal of the plane
         - number of inliers.
     """
-    N_iter = 1_000_000 # init
+    N_iter = 1_000_000  # init
     best_best_vote = -1
     with torch.no_grad():
         for n in range(N_iter):
-            
+
             point_plane, normal_plane, best_vote, inliers = RANSAC(
-                                        points,
-                                        nb_draws=B,
-                                        threshold_in=threshold_in,
-                                        normals=normals,
-                                        threshold_angle=threshold_angle,
-                                        )
-            
+                points,
+                nb_draws=B,
+                threshold_in=threshold_in,
+                normals=normals,
+                threshold_angle=threshold_angle,
+            )
+
             if best_vote > best_best_vote:
                 # update N_iter
                 N_iter = ceil(
                     np.log(beta) / (1e-6 + np.log(1 - best_vote/points.size(0)))
-                    )
+                )
                 best_best_vote = best_vote
                 best_point_plane = point_plane
                 best_normal_plane = normal_plane
-                
-            
+
             if n >= N_iter:
                 break
-            
+
         # Evaluate the best model on the whole dataset
         in_planes = in_plane(points, best_point_plane, best_normal_plane, threshold_in)
         # in_planes is a mask! [B]
         # Count the number of inliers for each plane and vote
-        
+
         if normals is not None:
             planes_parallel = plane_parallel(best_normal_plane, normals, threshold_angle).T
             in_planes = in_planes * planes_parallel
-    
-    
+
     return best_point_plane, best_normal_plane, best_best_vote, in_planes.squeeze(1)
 
 
 def recursive_RANSAC(points, nb_draws=100, threshold_in=0.1, nb_planes=2, normals=None, threshold_angle=15,
                      faster_ransac_variant=False, beta=0.01, B=5):
-    
+
     nb_points = len(points)
     device = points.device
-    
+
     remaining_inds = torch.arange(nb_points, device=device)
     remaining_points = points
     remaining_normals = normals
-	
+
     plane_inds = []
     plane_labels = []
 
     for plane_id in tqdm(range(nb_planes), desc="Processing planes", unit="plane"):
-        
-        ## Fit with ransac
+
+        # Fit with ransac
         if faster_ransac_variant:
             pt_plane, normal_plane, best_vote, is_explainable = faster_RANSAC(
                 remaining_points,
@@ -256,45 +258,71 @@ def recursive_RANSAC(points, nb_draws=100, threshold_in=0.1, nb_planes=2, normal
                 B=B)
         else:
             pt_plane, normal_plane, best_vote, is_explainable = RANSAC(remaining_points,
-                                                                        nb_draws,
-                                                                        threshold_in,
-                                                                        normals=remaining_normals,
-                                                                        threshold_angle=threshold_angle)
-        
+                                                                       nb_draws,
+                                                                       threshold_in,
+                                                                       normals=remaining_normals,
+                                                                       threshold_angle=threshold_angle)
+
         plane_inds.append(remaining_inds[is_explainable.bool()])
         plane_labels.append(plane_id * torch.ones(is_explainable.sum().item(), device=device))
-        
-        ## Mask them
+
+        # Mask them
         remaining_points = remaining_points[~is_explainable]
         remaining_inds = remaining_inds[~is_explainable]
         if remaining_normals is not None:
             remaining_normals = remaining_normals[~is_explainable]
-    
+
     plane_inds = torch.cat(plane_inds)
     plane_labels = torch.cat(plane_labels)
     return plane_inds.cpu().numpy(), remaining_inds.cpu().numpy(), plane_labels.cpu().numpy()
 
 
+def PCA(points: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Plane fitting by performing PCA on the covariance matrix of a neighborhood.
 
-    return plane_inds, remaining_inds
+    Args:
+        points (torch.Tensor): Neighborhoods of points. [batch, neighbours, xyz]
 
-def PCA(points):
+    Returns:
+        Tuple[torch.Tensor, torch.Tensor]: eigenvalues [batch, 1], eigenvectors [batch, xyz]
+
+    WARNING:
+    ========
+    Uses numpy for eigenvectors computation
+    For some reasons torch.eig and torch.eigh did not work.
+
+    """
     assert points.dim() == 3
     # [batch, neighbours, xyz]
     barycenter = torch.mean(points, dim=1, keepdim=True)
     diff = points - barycenter
     cov_mat = torch.matmul(diff.transpose(1, 2), diff) / points.size(1)
-    
+
     # torch eig and eigh looked broken. None of them worked in my install.
     # They do a stupid cpu sync anyways.
     eigenvalues, eigenvectors = np.linalg.eigh(cov_mat.cpu().numpy())
-    
+
     eigenvalues = torch.from_numpy(eigenvalues).to(device)
     eigenvectors = torch.from_numpy(eigenvectors).to(device)
 
     return eigenvalues, eigenvectors
 
-def compute_normals(query_points, cloud_points, k: int = 20):
+
+def compute_normals(
+    query_points: torch.Tensor,
+    cloud_points: torch.Tensor,
+    k: int = 20
+) -> torch.Tensor:
+    """Compute normals of a point cloud using PCA on the k neighborhoods of the points.
+
+    Args:
+        query_points (torch.Tensor): [N, 3]
+        cloud_points (torch.Tensor): [total_num_points, 3]
+        k (int, optional): number of points in the neighborhood. Defaults to 20.
+
+    Returns:
+        torch.Tensor: normals [N, 3]
+    """
     query_points_np = query_points.cpu().numpy()
     cloud_points_np = cloud_points.cpu().numpy()
     device = cloud_points.device
@@ -303,10 +331,10 @@ def compute_normals(query_points, cloud_points, k: int = 20):
     tree = KDTree(cloud_points_np, leaf_size=40, metric='minkowski')
     neighbors = tree.query(query_points_np, k=k, return_distance=False)
     neighbors = torch.from_numpy(neighbors).to(device)
-        
-    eigenvalues, eigenvectors = PCA(cloud_points[neighbors])
+
+    _eigenvalues, eigenvectors = PCA(cloud_points[neighbors])
     normals = eigenvectors[:, :, 0]
-    
+
     return normals
 
 
@@ -394,9 +422,10 @@ def run_ransac(
 #           Main
 #       \**********/
 #
-# 
+#
 #   Here you can define the instructions that are called when you execute this file
 #
+
 
 def main():
     # Load point cloud
@@ -430,9 +459,9 @@ def main():
         plane_inds, remaining_inds = run_plane_passing_through_3_points(points)
         # Save extracted plane and remaining points
         write_ply(
-            (output_path/'Q1_plane.ply').as_posix(), # Windows friendly
+            (output_path/'Q1_plane.ply').as_posix(),  # Windows friendly
             [points_np[plane_inds], colors[plane_inds], labels[plane_inds]],
-                ['x', 'y', 'z', 'red', 'green', 'blue', 'label'])
+            ['x', 'y', 'z', 'red', 'green', 'blue', 'label'])
         write_ply(
             (output_path/'Q1_remaining_points_plane.ply').as_posix(),
             [points_np[remaining_inds], colors[remaining_inds],
@@ -454,7 +483,7 @@ def main():
             (output_path/'Q3_remaining_points_best_plane.ply').as_posix(),
             [points_np[remaining_inds], colors[remaining_inds], labels[remaining_inds]],
             ['x', 'y', 'z', 'red', 'green', 'blue', 'label'])
-        
+
     # Find "all planes" in the cloud
     # ***********************************
     #
@@ -480,26 +509,27 @@ def main():
         write_ply((output_path/'Q4_remaining_points_best_planes.ply').as_posix(),
                   [points_np[remaining_inds], colors[remaining_inds], labels[remaining_inds]],
                   ['x', 'y', 'z', 'red', 'green', 'blue', 'label'])
-        
+
     if 5 in question_list:
         print('\n--- 5) ---\n')
 
         # Define parameters of recursive_RANSAC
         nb_draws = 500
         threshold_in = 0.20
-        threshold_angle = 10 # degrees
+        threshold_angle = 10  # degrees
         nb_planes = 5
-        
+
         # Compute normals
         normals = compute_normals(points, points, k=20)
 
         # Recursively find best plane by RANSAC
         t0 = time.time()
-        plane_inds, remaining_inds, plane_labels = recursive_RANSAC(points, nb_draws, threshold_in, nb_planes, normals, threshold_angle)
-        
+        plane_inds, remaining_inds, plane_labels = recursive_RANSAC(
+            points, nb_draws, threshold_in, nb_planes, normals, threshold_angle)
+
         t1 = time.time()
         print('recursive RANSAC with normals done in {:.3f} seconds'.format(t1 - t0))
-        
+
         normals = normals.cpu().numpy()
         # write_ply((output_path/'Q5_test_normals.ply').as_posix(),
         #           [points_np, colors, labels, normals],
@@ -508,7 +538,7 @@ def main():
         # Save the best planes and remaining points
         write_ply((output_path/'Q5_best_planes.ply').as_posix(),
                   [points_np[plane_inds], colors[plane_inds], labels[plane_inds], plane_labels.astype(np.int32),
-                    normals[plane_inds]],
+                   normals[plane_inds]],
                   ['x', 'y', 'z', 'red', 'green', 'blue', 'label', 'plane_label', 'nx', 'ny', 'nz'])
         write_ply((output_path/'Q5_remaining_points_best_planes.ply').as_posix(),
                   [points_np[remaining_inds], colors[remaining_inds], labels[remaining_inds]],
@@ -522,19 +552,20 @@ def main():
         # Define parameters of recursive_RANSAC
         nb_draws = 500
         threshold_in = 0.20
-        threshold_angle = 10 # degrees
+        threshold_angle = 10  # degrees
         nb_planes = 5
-        
+
         # Compute normals
         normals = compute_normals(points, points, k=20)
 
         # Recursively find best plane by RANSAC
         t0 = time.time()
-        plane_inds, remaining_inds, plane_labels = recursive_RANSAC(points, nb_draws, threshold_in, nb_planes, normals, threshold_angle, faster_ransac_variant=True)
-        
+        plane_inds, remaining_inds, plane_labels = recursive_RANSAC(
+            points, nb_draws, threshold_in, nb_planes, normals, threshold_angle, faster_ransac_variant=True)
+
         t1 = time.time()
         print('Faster recursive RANSAC with normals done in {:.3f} seconds'.format(t1 - t0))
-        
+
         normals = normals.cpu().numpy()
         # write_ply((output_path/'Q5_test_normals.ply').as_posix(),
         #           [points_np, colors, labels, normals],
@@ -543,7 +574,7 @@ def main():
         # Save the best planes and remaining points
         write_ply((output_path/'Q6_best_planes.ply').as_posix(),
                   [points_np[plane_inds], colors[plane_inds], labels[plane_inds], plane_labels.astype(np.int32),
-                    normals[plane_inds]],
+                   normals[plane_inds]],
                   ['x', 'y', 'z', 'red', 'green', 'blue', 'label', 'plane_label', 'nx', 'ny', 'nz'])
         write_ply((output_path/'Q6_remaining_points_best_planes.ply').as_posix(),
                   [points_np[remaining_inds], colors[remaining_inds], labels[remaining_inds]],
@@ -554,4 +585,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    
