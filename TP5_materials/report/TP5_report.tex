@@ -44,19 +44,20 @@ when the samples are distributed radially. This can be seen on Figure \ref{fig:Q
 \begin{figure}[ht]
     \centering
     \includegraphics[width=0.3\linewidth]{figures/Q2.png}
-    \caption{The distance criterion alone is not sufficiant for the indoor scene.}
+    \caption{The distance criterion alone is not sufficient for the indoor scene.}
     \label{fig:Q2}
 \end{figure}
 
 \section*{Question 3}
 
-We evaluate the same algorithm on "Lille_street" from previous assignments. We use 2 planes, a distance threshold of 0.1 and 200 draws.
+We evaluate the same algorithm on "Lille\_street" from previous assignments.
+We use 2 planes, a distance threshold of $0.1$ and 200 draws.
 The segmentation gives better results on this scene, because the point distribution is not radially distributed as in the indoor cloud point. This can be seen on figure \ref{fig:Q3}.
 
 \begin{figure}[ht]
     \centering
     \includegraphics[width=0.3\linewidth]{figures/Q3.png}
-    \caption{For Lille_street, the distance criterion is more satisfactory (for 2 planesat least).}
+    \caption{For Lille\_street, the distance criterion is more satisfactory (for 2 plane at least).}
     \label{fig:Q3}
 \end{figure}
 
@@ -66,8 +67,11 @@ To avoid the previous pitfalls, we can enrich the voting criterion by estimating
 a plane by picking 3 random samples, we can instead pick a single sample and its associated normal. Then, candidate points will only vote if they satisfy the distance criterion, as well
 as a criterion measuring the angle difference between their normal and the proposed plane normal.
 There are two major improvements to this strategy:
-\item First, the candidate planes are far superior to what we had before, because they are locally optimal. Ransac should therefore converge in fewer iterations.
-\item Second, points can only be considered as inliers of a plane if the local geometry resembles the plane. This will strongly reject planes that intersect every structure.
+\begin{itemize}
+    \item First, the candidate planes are far superior to what we had before, because they are locally optimal. Ransac should therefore converge in fewer iterations.
+    \item Second, points can only be considered as inliers of a plane if the local geometry resembles the plane. This will strongly reject planes that intersect every structure.
+\end{itemize}
+
 
 By doing so, the segmentation is considerably better, as can be seen on figure \ref{fig:Q4}.
 
@@ -89,7 +93,7 @@ We call "inliers" points that vote positively for a candidate plane. By noting $
 the objective is to iterate until the total probability of picking the righ plane among the $N$ is more than $1 - \beta$. In other words :
 
 $$
-(1 - m/N)^N_{iter} \leq \beta
+(1 - \frac{m}{N})^{N_{iter}} \leq \beta
 $$
 
 Which can be written as 
@@ -103,13 +107,12 @@ A second (smaller) source of optimisation is to only check the angle threshold c
 
 These tricks are however mainly designed for CPU computing, as they cannot use the SIMD computation power brought by GPUs. To further use the available hardware, we compute $B$ regular ransac iterations at the same time, therefore simultaneously evaluating multiple planes.
 We empirically found that, for this specific point cloud and for the specific case of segmentation by planes, $B=5$ was optimal to minimize the overhead.
-With $\beta = 0.01$ and $B=5$, we managed to make a 5-planes segmentation in 0.92 seconds. The quality result with and without the optimisation trick are near identical, as can be seen on figure \ref{fig:bonus}, but the speedup is considerable as can be seen on
-\ref{fig:bonus_1}
+With $\beta = 0.01$ and $B=5$, we managed to make a 5-planes segmentation in 0.92 seconds. The quality result with and without the optimisation trick are near identical, as can be seen on figure \ref{fig:bonus_1}, but the speedup is considerable as can be seen on  \ref{fig:bonus_1}
 
 \begin{figure}[ht]
     \centering
     \includegraphics[width=0.3\linewidth]{figures/bonus.png}
-    \caption{Esxecution time of the original and improved Ransac.}
+    \caption{Execution time of the original and improved Ransac.}
     \label{fig:bonus_1}
 \end{figure}
 
@@ -117,7 +120,7 @@ With $\beta = 0.01$ and $B=5$, we managed to make a 5-planes segmentation in 0.9
     \centering
     \includegraphics[width=0.3\linewidth]{figures/Q4.png}
     \includegraphics[width=0.3\linewidth]{figures/bonus_2.png}
-    \caption{Segmentation with 5 planes, using a distance thrshold 0.2, an angle threshold of 10 degrees and 500 draws.
+    \caption{Segmentation with 5 planes, using a distance threshold 0.2, an angle threshold of 10 degrees and 500 draws.
     Left: using the original method. Right: using the improved method.}
     \label{fig:bonus_2}
 \end{figure}
