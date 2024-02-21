@@ -22,6 +22,7 @@
 #
 
 from pathlib import Path
+from math import ceil
 
 # Import numpy package and name it "np"
 import numpy as np
@@ -168,8 +169,70 @@ def RANSAC(
     normal_plane = normal_planes[best_index]
     return point_plane, normal_plane, best_vote, in_planes[best_index]
 
+def faster_RANSAC(
+        points: torch.Tensor,
+        beta=0.01,
+        threshold_in: int = 0.1,
+        normals: torch.Tensor=None,
+        threshold_angle=15,
+        B=20,
+        ) -> Tuple[torch.Tensor, torch.Tensor, int, torch.Tensor]:
+    """
+    Performs the RANSAC algorithm to estimate the best plane model from a set of 3D points.
 
-def recursive_RANSAC(points, nb_draws=100, threshold_in=0.1, nb_planes=2, normals=None, threshold_angle=15):
+    Args:
+        points (torch.Tensor): [N, 3] input 3D points.
+        nb_draws (int): RANSAC parameter - number of random draws to perform.
+        threshold_in (int): RANSAC parameter - inlier threshold distance.
+
+    Returns:
+        Tuple[torch.Tensor, torch.Tensor, int]: A tuple containing 
+        - estimated point on the plane,
+        - estimated normal of the plane
+        - number of inliers.
+    """
+    N_iter = 1_000_000 # init
+    best_best_vote = -1
+    with torch.no_grad():
+        for n in range(N_iter):
+            
+            point_plane, normal_plane, best_vote, inliers = RANSAC(
+                                        points,
+                                        nb_draws=B,
+                                        threshold_in=threshold_in,
+                                        normals=normals,
+                                        threshold_angle=threshold_angle,
+                                        )
+            
+            if best_vote > best_best_vote:
+                # update N_iter
+                N_iter = ceil(
+                    np.log(beta) / (1e-6 + np.log(1 - best_vote/points.size(0)))
+                    )
+                best_best_vote = best_vote
+                best_point_plane = point_plane
+                best_normal_plane = normal_plane
+                
+            
+            if n >= N_iter:
+                break
+            
+        # Evaluate the best model on the whole dataset
+        in_planes = in_plane(points, best_point_plane, best_normal_plane, threshold_in)
+        # in_planes is a mask! [B]
+        # Count the number of inliers for each plane and vote
+        
+        if normals is not None:
+            planes_parallel = plane_parallel(best_normal_plane, normals, threshold_angle).T
+            in_planes = in_planes * planes_parallel
+    
+    
+    return best_point_plane, best_normal_plane, best_best_vote, in_planes.squeeze(1)
+
+
+def recursive_RANSAC(points, nb_draws=100, threshold_in=0.1, nb_planes=2, normals=None, threshold_angle=15,
+                     faster_ransac_variant=False, beta=0.01, B=5):
+    
     nb_points = len(points)
     device = points.device
     
@@ -183,11 +246,20 @@ def recursive_RANSAC(points, nb_draws=100, threshold_in=0.1, nb_planes=2, normal
     for plane_id in tqdm(range(nb_planes), desc="Processing planes", unit="plane"):
         
         ## Fit with ransac
-        pt_plane, normal_plane, best_vote, is_explainable = RANSAC(remaining_points,
-                                                                   nb_draws,
-                                                                   threshold_in,
-                                                                   normals=remaining_normals,
-                                                                   threshold_angle=threshold_angle)
+        if faster_ransac_variant:
+            pt_plane, normal_plane, best_vote, is_explainable = faster_RANSAC(
+                remaining_points,
+                beta,
+                threshold_in,
+                normals=remaining_normals,
+                threshold_angle=threshold_angle,
+                B=B)
+        else:
+            pt_plane, normal_plane, best_vote, is_explainable = RANSAC(remaining_points,
+                                                                        nb_draws,
+                                                                        threshold_in,
+                                                                        normals=remaining_normals,
+                                                                        threshold_angle=threshold_angle)
         
         plane_inds.append(remaining_inds[is_explainable.bool()])
         plane_labels.append(plane_id * torch.ones(is_explainable.sum().item(), device=device))
@@ -348,7 +420,7 @@ def main():
     labels = data['label']
     points = torch.from_numpy(points_np).to(device)
 
-    question_list = [4, 5]
+    question_list = [6]
     # Computes the plane passing through 3 randomly chosen points
     # ************************
     #
@@ -414,7 +486,7 @@ def main():
 
         # Define parameters of recursive_RANSAC
         nb_draws = 500
-        threshold_in = 0.10
+        threshold_in = 0.20
         threshold_angle = 10 # degrees
         nb_planes = 5
         
@@ -439,6 +511,41 @@ def main():
                     normals[plane_inds]],
                   ['x', 'y', 'z', 'red', 'green', 'blue', 'label', 'plane_label', 'nx', 'ny', 'nz'])
         write_ply((output_path/'Q5_remaining_points_best_planes.ply').as_posix(),
+                  [points_np[remaining_inds], colors[remaining_inds], labels[remaining_inds]],
+                  ['x', 'y', 'z', 'red', 'green', 'blue', 'label'])
+
+    print('Done')
+
+    if 6 in question_list:
+        print('\n--- 6) ---\n')
+
+        # Define parameters of recursive_RANSAC
+        nb_draws = 500
+        threshold_in = 0.20
+        threshold_angle = 10 # degrees
+        nb_planes = 5
+        
+        # Compute normals
+        normals = compute_normals(points, points, k=20)
+
+        # Recursively find best plane by RANSAC
+        t0 = time.time()
+        plane_inds, remaining_inds, plane_labels = recursive_RANSAC(points, nb_draws, threshold_in, nb_planes, normals, threshold_angle, faster_ransac_variant=True)
+        
+        t1 = time.time()
+        print('Faster recursive RANSAC with normals done in {:.3f} seconds'.format(t1 - t0))
+        
+        normals = normals.cpu().numpy()
+        # write_ply((output_path/'Q5_test_normals.ply').as_posix(),
+        #           [points_np, colors, labels, normals],
+        #           ['x', 'y', 'z', 'red', 'green', 'blue', 'label', 'nx', 'ny', 'nz'])
+
+        # Save the best planes and remaining points
+        write_ply((output_path/'Q6_best_planes.ply').as_posix(),
+                  [points_np[plane_inds], colors[plane_inds], labels[plane_inds], plane_labels.astype(np.int32),
+                    normals[plane_inds]],
+                  ['x', 'y', 'z', 'red', 'green', 'blue', 'label', 'plane_label', 'nx', 'ny', 'nz'])
+        write_ply((output_path/'Q6_remaining_points_best_planes.ply').as_posix(),
                   [points_np[remaining_inds], colors[remaining_inds], labels[remaining_inds]],
                   ['x', 'y', 'z', 'red', 'green', 'blue', 'label'])
 
