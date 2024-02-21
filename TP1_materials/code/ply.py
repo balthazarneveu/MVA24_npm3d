@@ -5,17 +5,17 @@
 #      0===============================0
 #
 #
-#------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------
 #
 #      function to read/write .ply files
 #
-#------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------
 #
 #      Hugues THOMAS - 10/02/2017
 #
 
 
-#------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------
 #
 #          Imports and global variables
 #      \**********************************/
@@ -25,6 +25,7 @@
 # Basic libs
 import numpy as np
 import sys
+from pathlib import Path
 
 
 # Define PLY types
@@ -53,7 +54,7 @@ valid_formats = {'ascii': '', 'binary_big_endian': '>',
                  'binary_little_endian': '<'}
 
 
-#------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------
 #
 #           Functions
 #       \***************/
@@ -68,7 +69,7 @@ def parse_header(plyfile, ext):
 
     while b'end_header' not in line and line != b'':
         line = plyfile.readline()
-    
+
         if b'element' in line:
             line = line.split()
             num_points = int(line[2])
@@ -78,8 +79,6 @@ def parse_header(plyfile, ext):
             properties.append((line[2].decode(), ext + ply_dtypes[line[1]]))
 
     return num_points, properties
-
-
 
 
 def read_ply(filename):
@@ -109,7 +108,7 @@ def read_ply(filename):
     >>> data = read_ply('example.ply')
     >>> values = data['values']
     array([0, 0, 1, 1, 0])
-    
+
     >>> points = np.vstack((data['x'], data['y'], data['z'])).T
     array([[ 0.466  0.595  0.324]
            [ 0.538  0.407  0.654]
@@ -120,7 +119,6 @@ def read_ply(filename):
     """
 
     with open(filename, 'rb') as plyfile:
-
 
         # Check if the file start with ply
         if b'ply' not in plyfile.readline():
@@ -140,10 +138,7 @@ def read_ply(filename):
         # Get data
         data = np.fromfile(plyfile, dtype=properties, count=num_points)
 
-
     return data
-
-
 
 
 def header_properties(field_list, field_names):
@@ -163,8 +158,6 @@ def header_properties(field_list, field_names):
 
     return lines
 
-
-        
 
 def write_ply(filename, field_list, field_names):
     """
@@ -198,6 +191,8 @@ def write_ply(filename, field_list, field_names):
     >>> write_ply('example3.ply', [points, colors, values], field_names)
 
     """
+    if isinstance(filename, Path):
+        filename = str(filename)
 
     # Format list input to the right form
     field_list = list(field_list) if (type(field_list) == list or type(field_list) == tuple) else list((field_list,))
@@ -215,7 +210,7 @@ def write_ply(filename, field_list, field_names):
     n_points = [field.shape[0] for field in field_list]
     if not np.all(np.equal(n_points, n_points[0])):
         print('wrong field dimensions')
-        return False    
+        return False
 
     # Check if field_names and field_list have same nb of column
     n_fields = np.sum([field.shape[1] for field in field_list])
@@ -245,7 +240,6 @@ def write_ply(filename, field_list, field_names):
         # Write all lines
         for line in header:
             plyfile.write("%s\n" % line)
-
 
     # open in binary/append to use tofile
     with open(filename, 'ab') as plyfile:
