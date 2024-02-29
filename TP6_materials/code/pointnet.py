@@ -190,7 +190,7 @@ class PointNetBasic(nn.Module):
         out = self.basic_pointnet(input)
         out = self.pool(out).squeeze(-1)
         out = self.mlp(out)
-        return out, None
+        return out, mat
 
 
 class Tnet(nn.Module):
@@ -265,8 +265,8 @@ def train(model, device, train_loader, test_loader=None, epochs=250, lr=0.001):
             optimizer.zero_grad()
             outputs, m3x3 = model(inputs.transpose(1, 2))
             # outputs, m3x3 = model(inputs.transpose(1,2))
-            loss = basic_loss(outputs, labels)
-            # loss = pointnet_full_loss(outputs, labels, m3x3)
+            # loss = basic_loss(outputs, labels)
+            loss = pointnet_full_loss(outputs, labels, m3x3)
             loss.backward()
             optimizer.step()
         scheduler.step()
