@@ -54,10 +54,10 @@ class AnisotropicScale(object):
 class RandomRepeat(object):
     def __call__(self, pointcloud):
         ablation_rate = 0.1
-        pointcloud = np.random.shuffle(pointcloud)
+        np.random.shuffle(pointcloud)
         repeat_size = np.random.randint(0, int(ablation_rate*1024))
         if repeat_size > 0:
-            pointcloud[:-repeat_size] = pointcloud[:repeat_size]
+            pointcloud[-repeat_size:] = pointcloud[:repeat_size]
         return pointcloud
 
 
