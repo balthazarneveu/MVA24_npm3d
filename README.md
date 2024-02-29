@@ -12,3 +12,4 @@ MVA class 2023 - 3D Point clouds
 - TP3 : [instructions](/TP3_Descriptors.pdf) | [report](/TP3_report.pdf)
 - TP4 : [instructions](/TP4_Reconstruction.pdf) | [report](/TP4_report.pdf)
 - TP5 : [instructions](/TP5_Modelisation.pdf) | [report](/TP5_report.pdf)
+- TP6 : [instructions](/TP6_DeepLearning.pdf) | [report](/TP6_report.pdf)
