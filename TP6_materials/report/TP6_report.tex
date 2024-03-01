@@ -24,8 +24,26 @@
 
 \section*{Question 1}
 
-1.708M paramters in the model.
-$18.1\%$ accuracy 100 epochs batch size= 64.
+We train our model on ModelNet40. It has 1.708M parameters. Using a learning rate of $1e-2$, we
+are only able to reach an accuracy of $12\%$ after 75 epochs (convergence is achieved).
+
+The accuracy of a random classifier would be $2.5\%$, so this result is not dramatic.
+However it cannot be considered a good classifier.
+
+\section*{Question 2}
+On ModelNet40, we reach an accuracy of $86\%$ after 75 epochs using a learning rate of $1e-3$.
+These results are considerably higher than using a simpl MLP. A Pointnet without Tnets can be used
+like a satisfactory classifier.
+
+\section*{Question 3}
+On ModelNet40, we reach an accuracy of $84\%$ after 100 epochs using a learning rate of $5e-3$.
+These results are slightly under what could be obtained without Tnet.
+
+\section*{Question 4}
+We propose two sources of data augmentation. First, we apply three random scaling factors centered around 1 in the x, y and z direction. 
+Second, we remove a random proportion of the points (around $10\%$) and replace them by duplicating other points.
+
+Using the same parameters as before, the impact of this data augmentation is not meaningful and seems to slightly hinder the accuracy.
 
 \end{document}
 
