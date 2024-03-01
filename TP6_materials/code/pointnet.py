@@ -25,6 +25,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import sys
 from pathlib import Path
+
+import matplotlib.pyplot as plt
 HERE = Path(__file__).parent
 
 # Import functions to read and write ply files
@@ -41,6 +43,10 @@ class RandomRotation_z(object):
 
 
 class AnisotropicScale(object):
+    """
+    This applies slight random rescale in each axis
+    
+    """
     def __call__(self, pointcloud):
         scale_factor = 0.1
         scale = np.random.uniform(1-scale_factor, 1+scale_factor, (3))
@@ -52,6 +58,12 @@ class AnisotropicScale(object):
 
 
 class RandomRepeat(object):
+    """
+    This randomly removes a proportion of points, and duplicate
+    others to keep the same number of points.
+    
+    
+    """
     def __call__(self, pointcloud):
         ablation_rate = 0.1
         np.random.shuffle(pointcloud)
@@ -135,7 +147,7 @@ class MLP(nn.Module):
             self.dropout, self.fc3)
 
     def forward(self, input):
-        return self.stack_lin_nonlin(input)
+        return self.stack_lin_nonlin(input), None
 
 
 class BaseBlock(nn.Module):
@@ -235,9 +247,6 @@ class PointNetFull(PointNetBasic):
     def __init__(self, **kwargs):
         super().__init__(tnet_in=True, **kwargs)
 
-    # def forward(self, input):
-    #     # YOUR CODE
-
 
 def basic_loss(outputs, labels):
     criterion = torch.nn.CrossEntropyLoss()
@@ -258,6 +267,7 @@ def train(model, device, train_loader, test_loader=None, epochs=250, lr=0.001):
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
     loss = 0
+    accuracies = []
     for epoch in range(epochs):
         model.train()
         for i, data in enumerate(train_loader, 0):
@@ -265,8 +275,12 @@ def train(model, device, train_loader, test_loader=None, epochs=250, lr=0.001):
             optimizer.zero_grad()
             outputs, m3x3 = model(inputs.transpose(1, 2))
             # outputs, m3x3 = model(inputs.transpose(1,2))
-            # loss = basic_loss(outputs, labels)
-            loss = pointnet_full_loss(outputs, labels, m3x3)
+            
+            if m3x3 is None:
+                loss = basic_loss(outputs, labels)
+            else:
+                loss = pointnet_full_loss(outputs, labels, m3x3)
+            
             loss.backward()
             optimizer.step()
         scheduler.step()
@@ -279,47 +293,143 @@ def train(model, device, train_loader, test_loader=None, epochs=250, lr=0.001):
                 for data in test_loader:
                     inputs, labels = data['pointcloud'].to(device).float(), data['category'].to(device)
                     outputs, mat3x3 = model(inputs.transpose(1, 2))
-                    # outputs, __ = model(inputs.transpose(1,2))
                     _, predicted = torch.max(outputs.data, 1)
                     total += labels.size(0)
                     correct += (predicted == labels).sum().item()
             test_acc = 100. * correct / total
+            accuracies.append(test_acc)
             print('Epoch: %d, Loss: %.3f, Test accuracy: %.1f %%' % (epoch+1, loss, test_acc))
+    return accuracies
 
 
-if __name__ == '__main__':
-
-    t0 = time.time()
-    ROOT_DIR = HERE.parent/"__data"/"ModelNet10_PLY"
-    # ROOT_DIR = HERE.parent/"__data"/"ModelNet40_PLY"
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print("Device: ", device)
-    chosen_transforms = custom_transforms_repeat()
-    # chosen_transforms = custom_transforms()
-    train_ds = PointCloudData_RAM(ROOT_DIR.as_posix(), folder='train', transform=chosen_transforms)
+def train_(model, transforms, epochs, lr):
+    train_ds = PointCloudData_RAM(ROOT_DIR.as_posix(), folder='train', transform=transforms)
     test_ds = PointCloudData_RAM(ROOT_DIR.as_posix(), folder='test', transform=test_transforms())
-
+    
     inv_classes = {i: cat for cat, i in train_ds.classes.items()}
     print("Classes: ", inv_classes)
     print('Train dataset size: ', len(train_ds))
     print('Test dataset size: ', len(test_ds))
     print('Number of classes: ', len(train_ds.classes))
     print('Sample pointcloud shape: ', train_ds[0]['pointcloud'].size())
-    batch_size = 64
+    batch_size = 512 # 64
     train_loader = DataLoader(dataset=train_ds, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(dataset=test_ds, batch_size=batch_size)
-
-    # model = MLP(classes=len(train_ds.classes))
-
-    # model = PointNetBasic(classes=len(train_ds.classes))
-    model = PointNetFull()
-
+    
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     print("Number of parameters in the Neural Networks: ", sum([np.prod(p.size()) for p in model_parameters]))
     model.to(device)
 
-    train(model, device, train_loader, test_loader, epochs=100, lr=1E-3)
+    accuracies = train(model, device, train_loader, test_loader, epochs=epochs, lr=lr)
 
     t1 = time.time()
     print("Total time for training : ", t1-t0)
+    
+    return accuracies
+    
+
+if __name__ == '__main__':
+
+    t0 = time.time()
+    n_classes = 10 # 10 or 40
+    assert n_classes in [10, 40]
+    
+    
+    ROOT_DIR = HERE.parent/"__data"/f"ModelNet{n_classes}_PLY"
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print("Device: ", device)
+    
+    chosen_transforms = default_transforms()
+    # chosen_transforms = custom_transforms_repeat()
+    # chosen_transforms = custom_transforms()
+
+
+    #%% Q1
+    mlp_model = MLP(classes=n_classes)
+    mlp_accuracies = train_(mlp_model, default_transforms(),
+                            epochs=75, lr=1e-2)
+
+    plt.figure()
+    plt.plot(mlp_accuracies, label="mlp")
+    plt.xlabel("epochs")
+    plt.ylabel("accuracy")
+    plt.legend()
+    plt.grid()
+    
+    torch.cuda.empty_cache()
+    #%% Q2
+    basic_pointnet_model = PointNetBasic(classes=n_classes)
+    basic_pointnet_accuracies = train_(basic_pointnet_model, default_transforms(),
+                            epochs=100, lr=1e-3)
+
+    plt.figure()
+    plt.plot(basic_pointnet_accuracies, label="basic Pointnet")
+    plt.xlabel("epochs")
+    plt.ylabel("accuracy")
+    plt.legend()
+    plt.grid()
+  
+    torch.cuda.empty_cache()
+    #%% Q3
+    full_pointnet_model = PointNetFull(classes=n_classes)
+    full_pointnet_accuracies = train_(full_pointnet_model, default_transforms(),
+                            epochs=100, lr=5e-3)
+    plt.figure()
+    plt.plot(full_pointnet_accuracies, label="full Pointnet")
+    plt.plot(basic_pointnet_accuracies, label="basic Pointnet")
+    plt.xlabel("epochs")
+    plt.ylabel("accuracy")
+    plt.legend()
+    plt.grid()
+    
+    torch.cuda.empty_cache()
+    
+    #%% Q4
+    epochs = 100
+    lr = 5e-3
+    
+    full_pointnet_model = PointNetFull(classes=n_classes)
+    default_accuracies = train_(full_pointnet_model, default_transforms(),
+                        epochs=epochs, lr=lr)
+    torch.cuda.empty_cache()
+    
+    full_pointnet_model = PointNetFull(classes=n_classes)
+    custom_accuracies = train_(full_pointnet_model, custom_transforms(),
+                        epochs=epochs, lr=lr)
+    torch.cuda.empty_cache()
+    
+    full_pointnet_model = PointNetFull(classes=n_classes)
+    custom_repeat_accuracies = train_(full_pointnet_model, custom_transforms_repeat(),
+                        epochs=epochs, lr=lr)
+    
+    
+    #%% Q4 plot
+    default_accuracies_ = np.array(default_accuracies) 
+    custom_accuracies_ = np.array(custom_accuracies) 
+    custom_repeat_accuracies_ = np.array(custom_repeat_accuracies)
+    
+    def smooth(x):
+        
+        x[1:-1] = 0.25 * (x[:-2] +
+                          2 * x[1:-1] +
+                          x[2:]
+                          )
+        return x
+    
+    default_accuracies_ = smooth(smooth(default_accuracies_))
+    custom_accuracies_ = smooth(smooth(custom_accuracies_))
+    custom_repeat_accuracies_ = smooth(smooth(custom_repeat_accuracies_))
+    
+    
+    plt.figure()
+    plt.plot(default_accuracies_, label="default")
+    plt.plot(custom_accuracies_, label="rescale")
+    plt.plot(custom_repeat_accuracies_, label="rescale + decimate")
+    plt.xlabel("epochs")
+    plt.ylabel("accuracy")
+    plt.legend()
+    plt.grid()
+    
+    torch.cuda.empty_cache()
+    
