@@ -47,16 +47,11 @@ Now the following lab session deals on how we classify 3D point clouds (e.g. uno
 We train our model on ModelNet40. It has 1.708M parameters. Using a learning rate of $10^{-}2$, we
 are only able to reach an accuracy of $12\%$ after 75 epochs (convergence is achieved).
 
-The accuracy of a random classifier would be $2.5\%$, so this result is not dramatic. Please note that MLP considered that the order matters here and is not \textbf{permutation invariant}. A more
-
+The accuracy of a random classifier would be $2.5\%$, so this result is not dramatic. 
 However it cannot be considered a good classifier.
+Please note that MLP considers that the order of the points matters (a list instead of a set) and therefore the output is not \textbf{permutation invariant}.
+A detailed unitary test is available in the code (test\_pointnet.py to make sure that pointNet architecture is actually permutation invariant).
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.5\textwidth]{figures/Q1.png}
-    \caption{MLP accuracy training curve}
-    \label{fig:MLP}
-\end{figure}
 
 \section*{Question 2}
 On ModelNet40, we reach an accuracy of $86\%$ after 75 epochs using a learning rate of $1e-3$.
@@ -68,6 +63,7 @@ PointNet processes each point of the set separately until the max pooling operat
 \section*{Question 3}
 On ModelNet40, we reach an accuracy of $84\%$ after 100 epochs using a learning rate of $5e-3$.
 These results are slightly under what could be obtained without Tnet.
+Our intuition is that by using TNet, network may learn to orient objects in a canonical way, which may not always the best way to classify them... it is almost like trying to counter-act the effect of augmentations.
 
 \section*{Question 4}
 We propose two sources of data augmentation. 
@@ -77,6 +73,52 @@ We propose two sources of data augmentation.
 \end{itemize}
 Using the same parameters as before, the impact of this data augmentation is not meaningful and seems to slightly hinder the accuracy.
 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\textwidth]{figures/Q4.png}
+    \caption{Impact on validation accuracy of our augmentations during PointNet training - seems like adding new augmentations sligtlty slowed down convergence and prevented to reach the best accuracy.}
+    \label{fig:pointNet augmentations}
+\end{figure}
+
+\section*{Conclusion}
+All evaluations conducted on ModelNet40 are summarized in Table \ref{tab:classification_results}. We can see that the PointNet architecture is able to classify 3D point clouds with a decent accuracy. However, the use of T-Net (promising idea on paper) does not seem to improve the results... nor data augmentation.
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|l|c|c|c|}
+    \hline
+    \textbf{Model} & \textbf{Learning Rate} & \textbf{Epochs} & \textbf{Accuracy} \\ \hline
+    MLP (Not permutation invariant) & $10^{-2}$ & 75 & 12\% \\ \hline
+    PointNet without T-Net & $10^{-3}$ & 75 & 86\% \\ \hline
+    PointNet with T-Net & $5 \times 10^{-3}$ & 100 & 84\% \\ \hline
+    PointNet with T-Net and Data Augmentation & $5. 10^{-3}$ & 100 & 83\% \\ \hline
+    \end{tabular}
+    \caption{Summary of Point Cloud Classification Results}
+    \label{tab:classification_results}
+\end{table}
+
+\section*{Appendix: training curves}
+
+    
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\textwidth]{figures/Q1.png}
+    \caption{MLP accuracy during training}
+    \label{fig:MLP}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\textwidth]{figures/Q3.png}
+    \caption{PointNet (no TNET vs TNET) + standard augmentations) validation accuracy during training}
+    \label{fig:pointNet}
+\end{figure}
+
+
+
+
+
 \end{document}
+
 
 

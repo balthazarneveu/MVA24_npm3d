@@ -11,33 +11,34 @@
 #      Jean-Emmanuel DESCHAUD - 21/02/2023
 #
 
-from ply import write_ply, read_ply
+from ply import read_ply
 import numpy as np
 import random
 import math
 import os
 import time
 import torch
-import scipy.spatial.distance
+from typing import Tuple
 from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms, utils
+from torchvision import transforms
 import torch.nn as nn
-import torch.nn.functional as F
-import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 HERE = Path(__file__).parent
 
-# Import functions to read and write ply files
 
+# ------------------------------------------------------------------------------------------
+# AUGMENTATION FUNCTIONS
+#
+# ------------------------------------------------------------------------------------------
 
 class RandomRotation_z(object):
     def __call__(self, pointcloud):
         theta = random.random() * 2. * math.pi
         rot_matrix = np.array([[math.cos(theta), -math.sin(theta),      0],
                                [math.sin(theta),  math.cos(theta),      0],
-                               [0,                               0,      1]])
+                               [0,                               0,     1]])
         rot_pointcloud = rot_matrix.dot(pointcloud.T).T
         return rot_pointcloud
 
@@ -45,8 +46,9 @@ class RandomRotation_z(object):
 class AnisotropicScale(object):
     """
     This applies slight random rescale in each axis
-    
+
     """
+
     def __call__(self, pointcloud):
         scale_factor = 0.1
         scale = np.random.uniform(1-scale_factor, 1+scale_factor, (3))
@@ -61,9 +63,10 @@ class RandomRepeat(object):
     """
     This randomly removes a proportion of points, and duplicate
     others to keep the same number of points.
-    
-    
+
+
     """
+
     def __call__(self, pointcloud):
         ablation_rate = 0.1
         np.random.shuffle(pointcloud)
@@ -97,7 +100,8 @@ def custom_transforms_repeat():
     return transforms.Compose([RandomRepeat(), RandomRotation_z(), RandomNoise(), AnisotropicScale(), ToTensor()])
 
 
-def test_transforms():
+def validation_set_transforms():
+    """Used for testing, no augmentation applied."""
     return transforms.Compose([ToTensor()])
 
 
@@ -126,9 +130,15 @@ class PointCloudData_RAM(Dataset):
         pointcloud = self.transforms(self.data[idx]['pointcloud'])
         return {'pointcloud': pointcloud, 'category': self.data[idx]['category']}
 
+# ------------------------------------------------------------------------------------------
+#
+# MODELS
+#
+# ------------------------------------------------------------------------------------------
+
 
 class MLP(nn.Module):
-    def __init__(self, classes=10):
+    def __init__(self, classes: int = 10):
         super().__init__()
         self.flattening = torch.nn.Flatten()
         self.fc1 = nn.Linear(3072, 512)
@@ -144,9 +154,10 @@ class MLP(nn.Module):
             self.flattening,
             self.fc1, self.bn1, self.relu1,
             self.fc2, self.bn2, self.relu2,
-            self.dropout, self.fc3)
+            self.dropout, self.fc3
+        )
 
-    def forward(self, input):
+    def forward(self, input: torch.Tensor) -> Tuple[torch.Tensor, None]:
         return self.stack_lin_nonlin(input), None
 
 
@@ -163,7 +174,7 @@ class BaseBlock(nn.Module):
         return self.base_conv(input)
 
 
-class PointNetBasic(nn.Module):
+class PointNetGeneric(nn.Module):
     def __init__(self, classes: int = 10, ch_in: int = 3, h_dim: int = 64, tnet_in: bool = False):
         super().__init__()
         self.tnet_in = tnet_in
@@ -194,7 +205,7 @@ class PointNetBasic(nn.Module):
             self.g_linear_3
         )
 
-    def forward(self, input):
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
         if self.tnet_in:
             input, mat = self.tnet(input)
         else:
@@ -206,7 +217,24 @@ class PointNetBasic(nn.Module):
 
 
 class Tnet(nn.Module):
-    def __init__(self, ch_in=3, k=3):
+    def __init__(self, ch_in: int = 3, k: int = 3):
+        """Estimates and applied a geometric linear transform to the input point cloud.
+        The concept of applying adaptive geometric transformation
+        was introduced by DeepMind researchers in 2015 in image classification
+        in the spatial transformer network paper https://arxiv.org/abs/1506.02025
+        Please note that the k*k matrix is not necessarily a pure rotation matrix.
+        A specific loss is used to enforce the matrix to be close to a pure rotation matrix.
+
+        A more radical way would be to constrain the matrix to be a pure rotation matrix
+        by 2 possible approaches:
+        - at the end of the foward block, use a QR decomposition of the matrix and use the orthogonal part 
+        - parametrize the matrix as a rotation matrix like using the Euler angles.
+
+        Args:
+            ch_in (int, optional): dimension of point cloud features (may be more than 3). Defaults to 3.
+            k (int, optional): rotation size. Defaults to 3.
+            actually more generic than a pure geometric linear transform
+        """
         super().__init__()
         self.l1 = BaseBlock(ch_in, 64)
         self.l2 = BaseBlock(64, 128)
@@ -230,7 +258,7 @@ class Tnet(nn.Module):
         )
         self.k = k
 
-    def forward(self, input):
+    def forward(self, input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         out = self.extractor(input)
         out = self.mlp(out.squeeze(-1))
         mat = out.view(-1, self.k, self.k)
@@ -238,16 +266,21 @@ class Tnet(nn.Module):
         return out, mat
 
 
-# model = Tnet()
-# out, mat = model(torch.rand(32, 3, 1024))
-# print(out.shape, mat.shape)
+class PointNetBasic(PointNetGeneric):
+    def __init__(self, **kwargs):
+        super().__init__(tnet_in=False, **kwargs)
 
 
-class PointNetFull(PointNetBasic):
+class PointNetFull(PointNetGeneric):
     def __init__(self, **kwargs):
         super().__init__(tnet_in=True, **kwargs)
 
 
+# ------------------------------------------------------------------------------------------
+#
+# LOSSES
+#
+# ------------------------------------------------------------------------------------------
 def basic_loss(outputs, labels):
     criterion = torch.nn.CrossEntropyLoss()
     return criterion(outputs, labels)
@@ -263,6 +296,11 @@ def pointnet_full_loss(outputs, labels, m3x3, alpha=0.001):
     return criterion(outputs, labels) + alpha * (torch.norm(diff3x3)) / float(bs)
 
 
+# ------------------------------------------------------------------------------------------
+#
+# TRAINING LOOP
+#
+# ------------------------------------------------------------------------------------------
 def train(model, device, train_loader, test_loader=None, epochs=250, lr=0.001):
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
@@ -275,12 +313,12 @@ def train(model, device, train_loader, test_loader=None, epochs=250, lr=0.001):
             optimizer.zero_grad()
             outputs, m3x3 = model(inputs.transpose(1, 2))
             # outputs, m3x3 = model(inputs.transpose(1,2))
-            
+
             if m3x3 is None:
                 loss = basic_loss(outputs, labels)
             else:
                 loss = pointnet_full_loss(outputs, labels, m3x3)
-            
+
             loss.backward()
             optimizer.step()
         scheduler.step()
@@ -304,18 +342,18 @@ def train(model, device, train_loader, test_loader=None, epochs=250, lr=0.001):
 
 def train_(model, transforms, epochs, lr):
     train_ds = PointCloudData_RAM(ROOT_DIR.as_posix(), folder='train', transform=transforms)
-    test_ds = PointCloudData_RAM(ROOT_DIR.as_posix(), folder='test', transform=test_transforms())
-    
+    test_ds = PointCloudData_RAM(ROOT_DIR.as_posix(), folder='test', transform=validation_set_transforms())
+
     inv_classes = {i: cat for cat, i in train_ds.classes.items()}
     print("Classes: ", inv_classes)
     print('Train dataset size: ', len(train_ds))
     print('Test dataset size: ', len(test_ds))
     print('Number of classes: ', len(train_ds.classes))
     print('Sample pointcloud shape: ', train_ds[0]['pointcloud'].size())
-    batch_size = 512 # 64
+    batch_size = 512  # 64
     train_loader = DataLoader(dataset=train_ds, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(dataset=test_ds, batch_size=batch_size)
-    
+
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     print("Number of parameters in the Neural Networks: ", sum([np.prod(p.size()) for p in model_parameters]))
     model.to(device)
@@ -324,28 +362,24 @@ def train_(model, transforms, epochs, lr):
 
     t1 = time.time()
     print("Total time for training : ", t1-t0)
-    
+
     return accuracies
-    
+
 
 if __name__ == '__main__':
 
     t0 = time.time()
-    n_classes = 10 # 10 or 40
+    n_classes = 10  # 10 or 40
     assert n_classes in [10, 40]
-    
-    
+
     ROOT_DIR = HERE.parent/"__data"/f"ModelNet{n_classes}_PLY"
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Device: ", device)
-    
+
     chosen_transforms = default_transforms()
-    # chosen_transforms = custom_transforms_repeat()
-    # chosen_transforms = custom_transforms()
 
-
-    #%% Q1
+    # %% Q1 - basic MLP
     mlp_model = MLP(classes=n_classes)
     mlp_accuracies = train_(mlp_model, default_transforms(),
                             epochs=75, lr=1e-2)
@@ -356,12 +390,12 @@ if __name__ == '__main__':
     plt.ylabel("accuracy")
     plt.legend()
     plt.grid()
-    
+
     torch.cuda.empty_cache()
-    #%% Q2
+    # %% Q2 - basic Pointnet no TNET
     basic_pointnet_model = PointNetBasic(classes=n_classes)
     basic_pointnet_accuracies = train_(basic_pointnet_model, default_transforms(),
-                            epochs=100, lr=1e-3)
+                                       epochs=100, lr=1e-3)
 
     plt.figure()
     plt.plot(basic_pointnet_accuracies, label="basic Pointnet")
@@ -369,12 +403,12 @@ if __name__ == '__main__':
     plt.ylabel("accuracy")
     plt.legend()
     plt.grid()
-  
+
     torch.cuda.empty_cache()
-    #%% Q3
+    # %% Q3 - add TNET!
     full_pointnet_model = PointNetFull(classes=n_classes)
     full_pointnet_accuracies = train_(full_pointnet_model, default_transforms(),
-                            epochs=100, lr=5e-3)
+                                      epochs=100, lr=5e-3)
     plt.figure()
     plt.plot(full_pointnet_accuracies, label="full Pointnet")
     plt.plot(basic_pointnet_accuracies, label="basic Pointnet")
@@ -382,46 +416,44 @@ if __name__ == '__main__':
     plt.ylabel("accuracy")
     plt.legend()
     plt.grid()
-    
+
     torch.cuda.empty_cache()
-    
-    #%% Q4
+
+    # %% Q4 - Compare augmentations
     epochs = 100
     lr = 5e-3
-    
+
     full_pointnet_model = PointNetFull(classes=n_classes)
     default_accuracies = train_(full_pointnet_model, default_transforms(),
-                        epochs=epochs, lr=lr)
+                                epochs=epochs, lr=lr)
     torch.cuda.empty_cache()
-    
+
     full_pointnet_model = PointNetFull(classes=n_classes)
     custom_accuracies = train_(full_pointnet_model, custom_transforms(),
-                        epochs=epochs, lr=lr)
+                               epochs=epochs, lr=lr)
     torch.cuda.empty_cache()
-    
+
     full_pointnet_model = PointNetFull(classes=n_classes)
     custom_repeat_accuracies = train_(full_pointnet_model, custom_transforms_repeat(),
-                        epochs=epochs, lr=lr)
-    
-    
-    #%% Q4 plot
-    default_accuracies_ = np.array(default_accuracies) 
-    custom_accuracies_ = np.array(custom_accuracies) 
+                                      epochs=epochs, lr=lr)
+
+    # %% Q4 plot
+    default_accuracies_ = np.array(default_accuracies)
+    custom_accuracies_ = np.array(custom_accuracies)
     custom_repeat_accuracies_ = np.array(custom_repeat_accuracies)
-    
+
     def smooth(x):
-        
+
         x[1:-1] = 0.25 * (x[:-2] +
                           2 * x[1:-1] +
                           x[2:]
                           )
         return x
-    
+
     default_accuracies_ = smooth(smooth(default_accuracies_))
     custom_accuracies_ = smooth(smooth(custom_accuracies_))
     custom_repeat_accuracies_ = smooth(smooth(custom_repeat_accuracies_))
-    
-    
+
     plt.figure()
     plt.plot(default_accuracies_, label="default")
     plt.plot(custom_accuracies_, label="rescale")
@@ -430,6 +462,5 @@ if __name__ == '__main__':
     plt.ylabel("accuracy")
     plt.legend()
     plt.grid()
-    
+
     torch.cuda.empty_cache()
-    
