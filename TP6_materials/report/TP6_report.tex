@@ -57,7 +57,7 @@ A detailed unitary test is available in the code (test\_pointnet.py to make sure
 On ModelNet40, we reach an accuracy of $86\%$ after 75 epochs using a learning rate of $1e-3$.
 These results are considerably higher than using a simple MLP. A Pointnet without Tnets can be used
 like a satisfactory classifier.
-PointNet processes each point of the set separately until the max pooling operator is reached. Max pooling statisfies the permutation invariance.
+Unlike the initial MLP, PointNet processes each point of the set separately until the max pooling operator is reached. Max pooling statisfies the permutation invariance.
 
 
 \section*{Question 3}
@@ -97,6 +97,12 @@ All evaluations conducted on ModelNet40 are summarized in Table \ref{tab:classif
     \label{tab:classification_results}
 \end{table}
 
+Foreseen potential ideas for improvements include:
+\begin{itemize}
+    \item Add sinusoidal and quadratic embeddings of the coordinates into the input features.
+    \item Interpretability of the PointNet architecture: visualize the points which were selected by the max pooling operator (find all max indexes and display the corresponding points in colors, we may find gain interpretability on how PointNet intuitively works).
+\end{itemize}
+
 \section*{Appendix: training curves}
 
     
@@ -114,9 +120,30 @@ All evaluations conducted on ModelNet40 are summarized in Table \ref{tab:classif
     \label{fig:pointNet}
 \end{figure}
 
+\break
 
 
+\section*{Appendix: T-NET validation}
+To validate our TNET implementation, we create a simple synthetic object \ref{fig:validation_object}.
+We then optimize (overfit) the TNET to "correct" the orientation of the object. Convergence is demonstrated in figure \ref{fig:validation_convergence_Tnet}. Please refer to the code check\_tnet.py for more details.
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.2\textwidth]{figures/TNET_validation.png}
+    \caption{The expected orientation of the object}
+    \label{fig:validation_object}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.\textwidth]{figures/TNET_optimization.png}
+    \caption{Horizontally, we show 10 same random orientations of the object after being "corrected" by the TNET.
+    Vertically, we see the convergence of the TNET across epochs. Here the optimization is performed on the predicted matrices directly and by optimizing the Froebenius norm of the difference between the predicted and expected matrices. We can see for instance that at the begining, the scales are not correct.
+    }
+    \label{fig:validation_convergence_Tnet}
+\end{figure}
+
+\textit{Please note that optimization could very well be performed on the predicted point cloud directly instead of the rotation matrices.}
 
 \end{document}
 
